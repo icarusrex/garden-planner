@@ -81,8 +81,10 @@
     .token-card p { margin: 0; color: var(--muted); line-height: 1.5; font-size: 13px; }
     .mapboxgl-ctrl-group { border-radius: 10px !important; overflow: hidden; }
     .draw-label { pointer-events: none; font: 600 11px/1.2 Inter, sans-serif; fill: #18221b; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; stroke-linejoin: round; }
-    .svg-object { cursor: pointer; vector-effect: non-scaling-stroke; }
+    .map-label { pointer-events: none; font: 600 12px/1.2 Inter, sans-serif; color: #18221b; white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff, 0 1px 1px #fff; }
+    .svg-object { cursor: grab; vector-effect: non-scaling-stroke; }
     .svg-object.selected { filter: drop-shadow(0 0 4px rgba(30,76,49,.55)); }
+    .svg-object.dragging { cursor: grabbing; opacity: .85; }
     .calibration-point { fill: #fff; stroke: #111; stroke-width: 2; vector-effect: non-scaling-stroke; }
     .mobile-toggle { display: none; }
     @media (max-width: 860px) {
@@ -141,6 +143,7 @@
             <div class="field" style="flex:1;margin:0"><label>Width</label><input id="pergolaWidth" type="number" min="1" step="0.5" value="10" /></div>
             <div class="field" style="flex:1;margin:0"><label>Depth</label><input id="pergolaDepth" type="number" min="1" step="0.5" value="10" /></div>
           </div>
+          <div class="field"><label>Rotation (°)</label><input id="pergolaRotation" type="number" min="0" max="359" step="1" value="0" /></div>
           <div class="hint">Then click the plan to place it. Dimensions use your selected units.</div>
         </div>
         <div id="pathFields" style="display:none;margin-top:8px">
@@ -148,6 +151,7 @@
         </div>
         <div id="treeFields" style="display:none;margin-top:8px">
           <div class="field"><label>Canopy diameter</label><input id="treeCanopy" type="number" min="1" step="0.5" value="12" /></div>
+          <div class="field"><label>Species / variety</label><input id="treeSpecies" type="text" placeholder="e.g. Orange tree, Olive, Oak" /></div>
         </div>
         <div class="hint" id="toolHint">Choose an object, then draw it on the plan.</div>
       </section>
@@ -161,13 +165,16 @@
             <div class="field" style="flex:1;margin:0"><label>Width</label><input id="selectedPergolaWidth" type="number" min="1" step="0.5" /></div>
             <div class="field" style="flex:1;margin:0"><label>Depth</label><input id="selectedPergolaDepth" type="number" min="1" step="0.5" /></div>
           </div>
+          <div class="field"><label>Rotation (°)</label><input id="selectedPergolaRotation" type="number" min="0" max="359" step="1" /></div>
         </div>
         <div id="selectedPathFields" style="display:none">
           <div class="field"><label>Path width</label><input id="selectedPathWidth" type="number" min="0.5" step="0.5" /></div>
         </div>
         <div id="selectedTreeFields" style="display:none">
           <div class="field"><label>Canopy diameter</label><input id="selectedTreeCanopy" type="number" min="1" step="0.5" /></div>
+          <div class="field"><label>Species / variety</label><input id="selectedTreeSpecies" type="text" placeholder="e.g. Orange tree, Olive, Oak" /></div>
         </div>
+        <div class="hint" style="margin-top:8px">Drag a selected object on the plan to reposition it.</div>
         <div class="row" style="margin-top:8px">
           <button class="btn primary" id="applySelected" style="flex:1">Apply changes</button>
           <button class="btn danger" id="deleteSelected">Delete</button>
@@ -233,6 +240,7 @@
     draw: null,
     selectedId: null,
     pendingMapClick: null,
+    satLabelMarkers: {},
     satelliteObjects: store.get('plotline.mapObjects', {}),
     image: {
       src: null,
@@ -287,7 +295,7 @@
     state.map.on('load', () => {
       const saved = store.get('plotline.mapGeoJSON', null);
       if (saved?.features?.length) state.draw.set(saved);
-      syncSatelliteMeta(); updateObjectList();
+      syncSatelliteMeta(); updateObjectList(); updateSatelliteLabels();
     });
     ['draw.create','draw.update','draw.delete','draw.selectionchange'].forEach(ev => state.map.on(ev, handleDrawEvent));
     state.map.on('click', handleMapClick);
@@ -327,20 +335,15 @@
     const kind = state.pendingMapClick;
     if (kind === 'tree') {
       const id = state.draw.add({ type:'Feature', properties:{ kind:'tree' }, geometry:{ type:'Point', coordinates:[e.lngLat.lng,e.lngLat.lat] } })[0];
-      const name = nextName('tree'); state.satelliteObjects[id] = { kind:'tree', name, canopyM: toMeters($('treeCanopy').value) }; state.draw.setFeatureProperty(id,'kind','tree');
+      const name = nextName('tree'); state.satelliteObjects[id] = { kind:'tree', name, canopyM: toMeters($('treeCanopy').value), species: $('treeSpecies').value.trim() }; state.draw.setFeatureProperty(id,'kind','tree');
       finishMapObject(id, 'tree');
     } else if (kind === 'pergola') {
       const widthM = toMeters($('pergolaWidth').value), depthM = toMeters($('pergolaDepth').value);
+      const rotationDeg = Number($('pergolaRotation').value) || 0;
       if (!(widthM > 0 && depthM > 0)) return alert('Enter valid pergola dimensions.');
-      const center = turf.point([e.lngLat.lng,e.lngLat.lat]);
-      const north = turf.destination(center, depthM/2/1000, 0, {units:'kilometers'});
-      const south = turf.destination(center, depthM/2/1000, 180, {units:'kilometers'});
-      const nw = turf.destination(north, widthM/2/1000, 270, {units:'kilometers'}).geometry.coordinates;
-      const ne = turf.destination(north, widthM/2/1000, 90, {units:'kilometers'}).geometry.coordinates;
-      const se = turf.destination(south, widthM/2/1000, 90, {units:'kilometers'}).geometry.coordinates;
-      const sw = turf.destination(south, widthM/2/1000, 270, {units:'kilometers'}).geometry.coordinates;
-      const id = state.draw.add({type:'Feature',properties:{kind:'pergola'},geometry:{type:'Polygon',coordinates:[[nw,ne,se,sw,nw]]}})[0];
-      state.satelliteObjects[id] = {kind:'pergola',name:nextName('pergola'),widthM,depthM}; state.draw.setFeatureProperty(id,'kind','pergola');
+      const ring = pergolaRing(e.lngLat.lng, e.lngLat.lat, widthM, depthM, rotationDeg);
+      const id = state.draw.add({type:'Feature',properties:{kind:'pergola'},geometry:{type:'Polygon',coordinates:[ring]}})[0];
+      state.satelliteObjects[id] = {kind:'pergola',name:nextName('pergola'),widthM,depthM,rotationDeg}; state.draw.setFeatureProperty(id,'kind','pergola');
       finishMapObject(id, 'pergola');
     }
   }
@@ -359,9 +362,9 @@
       finishMapObject(f.id, kind);
     } else if (e.type === 'draw.delete') {
       (e.features || []).forEach(f => delete state.satelliteObjects[f.id]);
-      persistMap(); state.selectedId = null; refreshSelected(); updateObjectList();
+      persistMap(); state.selectedId = null; refreshSelected(); updateObjectList(); updateSatelliteLabels();
     } else if (e.type === 'draw.update') {
-      persistMap(); refreshSelected(); updateObjectList();
+      persistMap(); refreshSelected(); updateObjectList(); updateSatelliteLabels();
     }
   }
 
@@ -370,7 +373,7 @@
     try { state.draw.changeMode('simple_select',{featureIds:[id]}); } catch {}
     state.pendingMapClick = null; state.tool = null; document.querySelectorAll('.tool').forEach(b => b.classList.remove('active'));
     $('pergolaFields').style.display='none'; $('pathFields').style.display='none'; $('treeFields').style.display='none';
-    refreshSelected(); updateObjectList(); setStatus(`${kindLabel[kind]} added · select it to edit or move`);
+    refreshSelected(); updateObjectList(); updateSatelliteLabels(); setStatus(`${kindLabel[kind]} added · select it to edit or move`);
   }
 
   function syncSatelliteMeta() {
@@ -379,21 +382,47 @@
       const meta = state.satelliteObjects[f.id] || {kind: f.geometry.type === 'LineString' ? 'path' : f.geometry.type === 'Point' ? 'tree' : 'bed', name:'Object'};
       state.satelliteObjects[f.id] = meta; state.draw.setFeatureProperty(f.id,'kind',meta.kind);
     });
-    persistMap();
+    persistMap(); updateSatelliteLabels();
   }
 
   function persistMap() { if (state.draw) store.set('plotline.mapGeoJSON', state.draw.getAll()); store.set('plotline.mapObjects', state.satelliteObjects); }
+
+  function satLabelCenter(f) {
+    try {
+      if (f.geometry.type === 'Point') return f.geometry.coordinates;
+      if (f.geometry.type === 'LineString') return turf.center(f).geometry.coordinates;
+      return turf.centerOfMass(f).geometry.coordinates;
+    } catch { return null; }
+  }
+  function updateSatelliteLabels() {
+    if (!state.draw || !state.map) return;
+    const features = state.draw.getAll().features;
+    const currentIds = new Set(features.map(f => f.id));
+    Object.keys(state.satLabelMarkers).forEach(id => { if (!currentIds.has(id)) { state.satLabelMarkers[id].remove(); delete state.satLabelMarkers[id]; } });
+    features.forEach(f => {
+      const meta = state.satelliteObjects[f.id]; if (!meta) return;
+      const center = satLabelCenter(f); if (!center) return;
+      const text = (meta.kind === 'tree' && meta.species) ? `${meta.name || 'Tree'} · ${meta.species}` : (meta.name || 'Object');
+      let marker = state.satLabelMarkers[f.id];
+      if (!marker) {
+        const el = document.createElement('div'); el.className = 'map-label';
+        marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', offset: [0, -6] }).setLngLat(center).addTo(state.map);
+        state.satLabelMarkers[f.id] = marker;
+      } else marker.setLngLat(center);
+      marker.getElement().textContent = text;
+    });
+  }
 
   function mapMeasurement(id) {
     if (!state.draw) return '';
     const f = state.draw.get(id), meta = state.satelliteObjects[id]; if (!f || !meta) return '';
     if (f.geometry.type === 'Polygon') {
       const a = turf.area(f), p = turf.length(turf.polygonToLine(f), {units:'kilometers'})*1000;
-      if (meta.kind === 'pergola' && meta.widthM && meta.depthM) return `${lengthText(meta.widthM)} × ${lengthText(meta.depthM)} · ${areaText(a)}`;
+      if (meta.kind === 'pergola' && meta.widthM && meta.depthM) return `${lengthText(meta.widthM)} × ${lengthText(meta.depthM)} · ${areaText(a)}${meta.rotationDeg ? ` · rotated ${meta.rotationDeg}°` : ''}`;
       return `${areaText(a)} · perimeter ${lengthText(p)}`;
     }
     if (f.geometry.type === 'LineString') return `${lengthText(turf.length(f,{units:'kilometers'})*1000)} long${meta.widthM ? ` · ${lengthText(meta.widthM)} wide` : ''}`;
-    return meta.canopyM ? `Tree · canopy ${lengthText(meta.canopyM)}` : 'Placed tree';
+    return meta.canopyM ? `${meta.species ? `${meta.species} · ` : ''}canopy ${lengthText(meta.canopyM)}` : 'Placed tree';
   }
 
   function locate() {
@@ -426,13 +455,23 @@
     return pt.matrixTransform(svg.getScreenCTM().inverse());
   }
   function imagePixelDistance(points) { let d=0; for(let i=1;i<points.length;i++) d += Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y); return d; }
+  function objectOrigin(o) {
+    if (o.kind==='tree') return {point:{...o.point}};
+    if (o.kind==='pergola') return {center:{...o.center}};
+    return {points:o.points.map(p=>({...p}))};
+  }
+  function applyDrag(o, origin, dx, dy) {
+    if (o.kind==='tree') o.point={x:origin.point.x+dx,y:origin.point.y+dy};
+    else if (o.kind==='pergola') o.center={x:origin.center.x+dx,y:origin.center.y+dy};
+    else o.points=origin.points.map(p=>({x:p.x+dx,y:p.y+dy}));
+  }
   function imagePolygonArea(points) { let a=0; for(let i=0,j=points.length-1;i<points.length;j=i++) a += (points[j].x*points[i].y - points[i].x*points[j].y); return Math.abs(a/2); }
 
   function imageMeasurement(obj) {
     const s = state.image.metersPerPixel;
     if (!s) return 'Scale not calibrated';
-    if (obj.kind === 'tree') return obj.canopyM ? `Tree · canopy ${lengthText(obj.canopyM)}` : 'Placed tree';
-    if (obj.kind === 'pergola') return `${lengthText(obj.widthM)} × ${lengthText(obj.depthM)} · ${areaText(obj.widthM*obj.depthM)}`;
+    if (obj.kind === 'tree') return obj.canopyM ? `${obj.species ? `${obj.species} · ` : ''}canopy ${lengthText(obj.canopyM)}` : 'Placed tree';
+    if (obj.kind === 'pergola') return `${lengthText(obj.widthM)} × ${lengthText(obj.depthM)} · ${areaText(obj.widthM*obj.depthM)}${obj.rotationDeg ? ` · rotated ${obj.rotationDeg}°` : ''}`;
     if (obj.kind === 'path') return `${lengthText(imagePixelDistance(obj.points)*s)} long · ${lengthText(obj.widthM || 0)} wide`;
     return `${areaText(imagePolygonArea(obj.points)*s*s)} · perimeter ${lengthText(imagePixelDistance([...obj.points,obj.points[0]])*s)}`;
   }
@@ -468,12 +507,12 @@
     }
     if (!state.tool) return;
     if (state.tool === 'tree') {
-      addImageObject({id:uid(),kind:'tree',name:nextName('tree'),point:p,canopyM:toMeters($('treeCanopy').value)}); clearTool(); return;
+      addImageObject({id:uid(),kind:'tree',name:nextName('tree'),point:p,canopyM:toMeters($('treeCanopy').value),species:$('treeSpecies').value.trim()}); clearTool(); return;
     }
     if (state.tool === 'pergola') {
       if (!state.image.metersPerPixel) return alert('Calibrate the image scale before placing a sized pergola.');
-      const widthM = toMeters($('pergolaWidth').value), depthM=toMeters($('pergolaDepth').value);
-      addImageObject({id:uid(),kind:'pergola',name:nextName('pergola'),center:p,widthM,depthM}); clearTool(); return;
+      const widthM = toMeters($('pergolaWidth').value), depthM=toMeters($('pergolaDepth').value), rotationDeg=Number($('pergolaRotation').value)||0;
+      addImageObject({id:uid(),kind:'pergola',name:nextName('pergola'),center:p,widthM,depthM,rotationDeg}); clearTool(); return;
     }
     if (state.tool === 'property' || state.tool === 'bed' || state.tool === 'path') {
       state.image.draft.push(p); renderImage();
@@ -498,6 +537,7 @@
     const ns='http://www.w3.org/2000/svg';
     const base=document.createElementNS(ns,'image'); base.setAttribute('href',state.image.src); base.setAttribute('x','0'); base.setAttribute('y','0'); base.setAttribute('width',state.image.width); base.setAttribute('height',state.image.height); base.setAttribute('preserveAspectRatio','xMidYMid meet'); svg.appendChild(base);
     state.image.objects.forEach(o => svg.appendChild(renderSvgObject(o)));
+    state.image.objects.forEach(o => svg.appendChild(renderImageLabel(o)));
     if (state.image.draft.length) {
       const shape=document.createElementNS(ns, state.tool==='path'?'polyline':'polygon'); shape.setAttribute('points',state.image.draft.map(p=>`${p.x},${p.y}`).join(' ')); shape.setAttribute('fill',state.tool==='path'?'none':'rgba(78,140,89,.18)'); shape.setAttribute('stroke','#2f6b4f'); shape.setAttribute('stroke-width','3'); shape.setAttribute('stroke-dasharray','8 6'); shape.setAttribute('vector-effect','non-scaling-stroke'); svg.appendChild(shape);
       state.image.draft.forEach(p=>{ const c=document.createElementNS(ns,'circle'); c.setAttribute('cx',p.x); c.setAttribute('cy',p.y); c.setAttribute('r','5'); c.setAttribute('class','calibration-point'); svg.appendChild(c); });
@@ -505,27 +545,87 @@
     state.image.calibration.forEach((p,i)=>{ const c=document.createElementNS(ns,'circle'); c.setAttribute('cx',p.x); c.setAttribute('cy',p.y); c.setAttribute('r','7'); c.setAttribute('class','calibration-point'); svg.appendChild(c); if(i===1){const l=document.createElementNS(ns,'line');l.setAttribute('x1',state.image.calibration[0].x);l.setAttribute('y1',state.image.calibration[0].y);l.setAttribute('x2',p.x);l.setAttribute('y2',p.y);l.setAttribute('stroke','#111');l.setAttribute('stroke-width','2');l.setAttribute('stroke-dasharray','8 5');l.setAttribute('vector-effect','non-scaling-stroke');svg.insertBefore(l,c);} });
   }
 
+  function imageLabelFontSize() { return Math.max(14, Math.max(state.image.width, state.image.height) * 0.014); }
+  function imageLabelText(o) { return (o.kind==='tree' && o.species) ? `${o.name} · ${o.species}` : o.name; }
+  function imageLabelPoint(o) {
+    const fs = imageLabelFontSize();
+    if (o.kind==='tree') {
+      const r=(o.canopyM&&state.image.metersPerPixel)?(o.canopyM/state.image.metersPerPixel)/2:Math.max(8,Math.min(state.image.width,state.image.height)*.012);
+      return {x:o.point.x, y:o.point.y - r - fs*0.6};
+    }
+    if (o.kind==='pergola') {
+      const s=state.image.metersPerPixel||1, h=o.depthM/s;
+      return {x:o.center.x, y:o.center.y - h/2 - fs*0.6};
+    }
+    if (o.kind==='path') {
+      const mid=o.points[Math.floor((o.points.length-1)/2)] || o.points[0];
+      return {x:mid.x, y:mid.y - fs*0.6};
+    }
+    const cx=o.points.reduce((s,p)=>s+p.x,0)/o.points.length, cy=o.points.reduce((s,p)=>s+p.y,0)/o.points.length;
+    return {x:cx, y:cy};
+  }
+  function renderImageLabel(o) {
+    const ns='http://www.w3.org/2000/svg', fs=imageLabelFontSize(), pt=imageLabelPoint(o);
+    const t=document.createElementNS(ns,'text');
+    t.setAttribute('x',pt.x); t.setAttribute('y',pt.y); t.setAttribute('text-anchor','middle');
+    t.setAttribute('data-label-for',o.id); t.setAttribute('class','draw-label');
+    t.setAttribute('style',`font-size:${fs}px;stroke-width:${(fs*0.27).toFixed(1)}px`);
+    t.textContent=imageLabelText(o);
+    return t;
+  }
   function renderSvgObject(o) {
     const ns='http://www.w3.org/2000/svg'; let el;
     if (o.kind==='tree') {
       el=document.createElementNS(ns,'circle'); el.setAttribute('cx',o.point.x); el.setAttribute('cy',o.point.y); const canopyPx=(o.canopyM&&state.image.metersPerPixel)?(o.canopyM/state.image.metersPerPixel)/2:Math.max(8,Math.min(state.image.width,state.image.height)*.012); el.setAttribute('r',Math.max(6,canopyPx)); el.setAttribute('fill','rgba(45,105,64,.62)'); el.setAttribute('stroke','#225431'); el.setAttribute('stroke-width','3');
     } else if (o.kind==='pergola') {
       const s=state.image.metersPerPixel || 1, w=o.widthM/s, h=o.depthM/s; el=document.createElementNS(ns,'rect'); el.setAttribute('x',o.center.x-w/2); el.setAttribute('y',o.center.y-h/2); el.setAttribute('width',w); el.setAttribute('height',h); el.setAttribute('fill','rgba(168,117,67,.26)'); el.setAttribute('stroke','#a87543'); el.setAttribute('stroke-width','3');
+      if (o.rotationDeg) el.setAttribute('transform',`rotate(${o.rotationDeg} ${o.center.x} ${o.center.y})`);
     } else if (o.kind==='path') {
       el=document.createElementNS(ns,'polyline'); el.setAttribute('points',o.points.map(p=>`${p.x},${p.y}`).join(' ')); el.setAttribute('fill','none'); el.setAttribute('stroke','#b2a893'); const px=(o.widthM && state.image.metersPerPixel)?o.widthM/state.image.metersPerPixel:8; el.setAttribute('stroke-width',Math.max(5,px)); el.setAttribute('stroke-linecap','round'); el.setAttribute('stroke-linejoin','round');
     } else {
       el=document.createElementNS(ns,'polygon'); el.setAttribute('points',o.points.map(p=>`${p.x},${p.y}`).join(' ')); el.setAttribute('fill',o.kind==='property'?'rgba(93,111,133,.15)':'rgba(78,140,89,.22)'); el.setAttribute('stroke',o.kind==='property'?'#5d6f85':'#4e8c59'); el.setAttribute('stroke-width','3');
     }
     el.setAttribute('data-id',o.id); el.classList.add('svg-object'); if(o.id===state.selectedId) el.classList.add('selected'); el.setAttribute('vector-effect','non-scaling-stroke');
-    el.addEventListener('click',ev=>{ if(state.tool) return; ev.stopPropagation(); state.selectedId=o.id; renderImage(); refreshSelected(); updateObjectList(); });
+    el.addEventListener('pointerdown', ev => {
+      if (state.tool) return;
+      ev.stopPropagation();
+      const startPt = svgPoint(ev);
+      const origin = objectOrigin(o);
+      const baseTransform = o.kind==='pergola' && o.rotationDeg ? `rotate(${o.rotationDeg} ${o.center.x} ${o.center.y})` : '';
+      const label = svg.querySelector(`[data-label-for="${o.id}"]`);
+      const drag = { moved:false };
+      el.setPointerCapture(ev.pointerId);
+      const onMove = mv => {
+        const p = svgPoint(mv), dx = p.x-startPt.x, dy = p.y-startPt.y;
+        if (!drag.moved && Math.hypot(dx,dy) > 3) { drag.moved = true; el.classList.add('dragging'); }
+        if (!drag.moved) return;
+        el.setAttribute('transform', `translate(${dx} ${dy}) ${baseTransform}`.trim());
+        if (label) label.setAttribute('transform', `translate(${dx} ${dy})`);
+      };
+      const onUp = up => {
+        el.releasePointerCapture(up.pointerId);
+        el.removeEventListener('pointermove', onMove);
+        el.removeEventListener('pointerup', onUp);
+        el.classList.remove('dragging');
+        if (drag.moved) {
+          const p = svgPoint(up), dx = p.x-startPt.x, dy = p.y-startPt.y;
+          applyDrag(o, origin, dx, dy);
+          persistImage(); renderImage(); refreshSelected(); updateObjectList(); setStatus('Moved · select and drag again, or edit precisely in the Selected panel');
+        } else {
+          state.selectedId=o.id; renderImage(); refreshSelected(); updateObjectList();
+        }
+      };
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', onUp);
+    });
     return el;
   }
 
   // ---------- Selection / list / export ----------
   function currentObjects() {
-    if (state.mode==='image') return state.image.objects.map(o=>({id:o.id,kind:o.kind,name:o.name,measurement:imageMeasurement(o)}));
+    if (state.mode==='image') return state.image.objects.map(o=>({id:o.id,kind:o.kind,name:o.name,measurement:imageMeasurement(o),species:o.species,rotationDeg:o.rotationDeg}));
     if (!state.draw) return [];
-    return state.draw.getAll().features.map(f=>{ const m=state.satelliteObjects[f.id] || {}; return {id:f.id,kind:m.kind || 'bed',name:m.name || 'Object',measurement:mapMeasurement(f.id)}; });
+    return state.draw.getAll().features.map(f=>{ const m=state.satelliteObjects[f.id] || {}; return {id:f.id,kind:m.kind || 'bed',name:m.name || 'Object',measurement:mapMeasurement(f.id),species:m.species,rotationDeg:m.rotationDeg}; });
   }
   function nextName(kind, count=true) {
     const objects=currentObjects().filter(o=>o.kind===kind); return `${kindLabel[kind]} ${objects.length + (count?1:0)}`;
@@ -554,12 +654,14 @@
       $('selectedPergolaFields').style.display='block';
       $('selectedPergolaWidth').value=(fromMeters(o.widthM||0)).toFixed(1).replace(/\.0$/,'');
       $('selectedPergolaDepth').value=(fromMeters(o.depthM||0)).toFixed(1).replace(/\.0$/,'');
+      $('selectedPergolaRotation').value=o.rotationDeg||0;
     } else if(o.kind==='path') {
       $('selectedPathFields').style.display='block';
       $('selectedPathWidth').value=(fromMeters(o.widthM||0)).toFixed(1).replace(/\.0$/,'');
     } else if(o.kind==='tree') {
       $('selectedTreeFields').style.display='block';
       $('selectedTreeCanopy').value=(fromMeters(o.canopyM||toMeters(12))).toFixed(1).replace(/\.0$/,'');
+      $('selectedTreeSpecies').value=o.species||'';
     }
   }
   $('selectedName').addEventListener('change',()=>{ const o=selectedObject(); if(!o)return; o.name=$('selectedName').value.trim()||kindLabel[o.kind]; if(state.mode==='image')persistImage(); else {state.satelliteObjects[o.id].name=o.name;persistMap();} updateObjectList(); });
@@ -574,29 +676,36 @@
     const sw=turf.destination(south, widthM/2/1000, 270, {units:'kilometers'}).geometry.coordinates;
     return [nw,ne,se,sw,nw];
   }
+  function pergolaRing(lng, lat, widthM, depthM, rotationDeg) {
+    const ring = rectangleAround(lng, lat, widthM, depthM);
+    if (!rotationDeg) return ring;
+    const rotated = turf.transformRotate(turf.polygon([ring]), rotationDeg, {pivot:[lng,lat]});
+    return rotated.geometry.coordinates[0];
+  }
 
   $('applySelected').onclick=()=>{
     const o=selectedObject(); if(!o)return;
     const newName=$('selectedName').value.trim()||kindLabel[o.kind];
     if(state.mode==='image') {
       o.name=newName;
-      if(o.kind==='pergola') { o.widthM=toMeters($('selectedPergolaWidth').value); o.depthM=toMeters($('selectedPergolaDepth').value); }
+      if(o.kind==='pergola') { o.widthM=toMeters($('selectedPergolaWidth').value); o.depthM=toMeters($('selectedPergolaDepth').value); o.rotationDeg=Number($('selectedPergolaRotation').value)||0; }
       if(o.kind==='path') o.widthM=toMeters($('selectedPathWidth').value);
-      if(o.kind==='tree') o.canopyM=toMeters($('selectedTreeCanopy').value);
+      if(o.kind==='tree') { o.canopyM=toMeters($('selectedTreeCanopy').value); o.species=$('selectedTreeSpecies').value.trim(); }
       persistImage(); renderImage();
     } else if(state.draw) {
       const meta=state.satelliteObjects[o.id]; meta.name=newName;
       if(o.kind==='pergola') {
         const widthM=toMeters($('selectedPergolaWidth').value), depthM=toMeters($('selectedPergolaDepth').value);
+        const rotationDeg=Number($('selectedPergolaRotation').value)||0;
         if(!(widthM>0&&depthM>0)) return alert('Enter valid pergola dimensions.');
-        meta.widthM=widthM; meta.depthM=depthM;
+        meta.widthM=widthM; meta.depthM=depthM; meta.rotationDeg=rotationDeg;
         const center=turf.centerOfMass(o.feature).geometry.coordinates;
-        const feature={...o.feature,geometry:{type:'Polygon',coordinates:[rectangleAround(center[0],center[1],widthM,depthM)]}};
+        const feature={...o.feature,geometry:{type:'Polygon',coordinates:[pergolaRing(center[0],center[1],widthM,depthM,rotationDeg)]}};
         state.draw.add(feature); state.draw.setFeatureProperty(o.id,'kind','pergola');
       }
       if(o.kind==='path') meta.widthM=toMeters($('selectedPathWidth').value);
-      if(o.kind==='tree') meta.canopyM=toMeters($('selectedTreeCanopy').value);
-      persistMap();
+      if(o.kind==='tree') { meta.canopyM=toMeters($('selectedTreeCanopy').value); meta.species=$('selectedTreeSpecies').value.trim(); }
+      persistMap(); updateSatelliteLabels();
     }
     refreshSelected(); updateObjectList(); setStatus('Changes applied');
   };
