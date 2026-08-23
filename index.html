@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Plotline — Garden & Property Planner</title>
+  <meta name="description" content="A lightweight property and garden planner with satellite and uploaded-image modes." />
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.27.0/mapbox-gl.css" rel="stylesheet" />
+  <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.5.1/mapbox-gl-draw.css" rel="stylesheet" />
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f1e8;
+      --panel: #fffdf8;
+      --ink: #1f2a22;
+      --muted: #667169;
+      --line: #d9ddd7;
+      --accent: #2f6b4f;
+      --accent-2: #dbe9df;
+      --danger: #a53b35;
+      --property: #5d6f85;
+      --bed: #4e8c59;
+      --pergola: #a87543;
+      --path: #b2a893;
+      --tree: #2d6940;
+      --shadow: 0 10px 30px rgba(28, 38, 30, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .app { display: grid; grid-template-rows: 58px 1fr; height: 100vh; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--line); background: rgba(255,253,248,.96); backdrop-filter: blur(10px); z-index: 20; }
+    .brand { display: flex; gap: 10px; align-items: center; font-weight: 750; letter-spacing: -.02em; }
+    .brand-mark { width: 30px; height: 30px; border: 1px solid #9fb0a3; border-radius: 10px 10px 14px 14px; display: grid; place-items: center; background: #e7efe9; }
+    .top-actions { display: flex; gap: 8px; align-items: center; }
+    .layout { min-height: 0; display: grid; grid-template-columns: 310px minmax(0,1fr); }
+    .sidebar { min-height: 0; overflow: auto; padding: 14px; border-right: 1px solid var(--line); background: var(--panel); }
+    .workspace { min-width: 0; min-height: 0; position: relative; background: #d8ded7; }
+    #map, #imageWorkspace { position: absolute; inset: 0; }
+    #imageWorkspace { display: none; background: #e7e6df; overflow: hidden; }
+    #imageCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+    .empty-image { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; color: var(--muted); text-align: center; padding: 24px; }
+    .empty-card { background: rgba(255,255,255,.86); border: 1px solid var(--line); border-radius: 16px; padding: 22px; max-width: 390px; box-shadow: var(--shadow); }
+    .section { border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 12px; background: #fff; }
+    .section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 10px; color: var(--muted); }
+    .segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: #eff1ed; border-radius: 10px; }
+    .segmented button { border: 0; background: transparent; color: var(--muted); padding: 8px 10px; border-radius: 8px; }
+    .segmented button.active { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .tool { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: #fff; padding: 9px; border-radius: 10px; text-align: left; color: var(--ink); }
+    .tool:hover, .tool.active { border-color: #91a596; background: #f3f8f4; }
+    .swatch { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
+    .swatch.property { background: var(--property); }
+    .swatch.bed { background: var(--bed); }
+    .swatch.pergola { background: var(--pergola); }
+    .swatch.path { background: var(--path); }
+    .swatch.tree { background: var(--tree); border-radius: 50%; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row > * { min-width: 0; }
+    .field { display: grid; gap: 5px; margin-top: 8px; }
+    .field label { font-size: 12px; color: var(--muted); }
+    input, select { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; background: #fff; color: var(--ink); }
+    .btn { border: 1px solid var(--line); background: #fff; color: var(--ink); padding: 8px 11px; border-radius: 9px; }
+    .btn:hover { background: #f6f7f4; }
+    .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn.danger { color: var(--danger); }
+    .btn.small { padding: 6px 8px; font-size: 12px; }
+    .hint { font-size: 12px; line-height: 1.45; color: var(--muted); margin-top: 8px; }
+    .objects { display: grid; gap: 6px; }
+    .object-card { border: 1px solid var(--line); border-radius: 10px; padding: 9px; display: grid; gap: 4px; cursor: pointer; background: #fff; }
+    .object-card:hover, .object-card.selected { border-color: #8ea395; background: #f7faf7; }
+    .object-title { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 650; }
+    .object-meta { color: var(--muted); font-size: 12px; }
+    .status { position: absolute; left: 50%; transform: translateX(-50%); top: 14px; z-index: 10; background: rgba(27,35,29,.9); color: #fff; padding: 8px 12px; border-radius: 999px; font-size: 12px; box-shadow: var(--shadow); pointer-events: none; max-width: calc(100% - 40px); text-align: center; }
+    .floating { position: absolute; right: 14px; bottom: 14px; z-index: 10; display: grid; gap: 8px; }
+    .floating .btn { box-shadow: var(--shadow); }
+    .token-gate { position: absolute; inset: 0; z-index: 12; display: grid; place-items: center; background: radial-gradient(circle at center, rgba(240,244,240,.84), rgba(226,231,225,.96)); padding: 20px; }
+    .token-card { width: min(480px,100%); background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 18px; padding: 20px; }
+    .token-card h2 { margin: 0 0 8px; font-size: 20px; }
+    .token-card p { margin: 0; color: var(--muted); line-height: 1.5; font-size: 13px; }
+    .mapboxgl-ctrl-group { border-radius: 10px !important; overflow: hidden; }
+    .draw-label { pointer-events: none; font: 600 11px/1.2 Inter, sans-serif; fill: #18221b; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; stroke-linejoin: round; }
+    .svg-object { cursor: pointer; vector-effect: non-scaling-stroke; }
+    .svg-object.selected { filter: drop-shadow(0 0 4px rgba(30,76,49,.55)); }
+    .calibration-point { fill: #fff; stroke: #111; stroke-width: 2; vector-effect: non-scaling-stroke; }
+    .mobile-toggle { display: none; }
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: absolute; z-index: 30; top: 58px; bottom: 0; left: 0; width: min(330px, 90vw); box-shadow: var(--shadow); transform: translateX(-102%); transition: transform .2s ease; }
+      .sidebar.open { transform: translateX(0); }
+      .mobile-toggle { display: inline-flex; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">⌂</span><span>Plotline</span></div>
+    <div class="top-actions">
+      <select id="unitSelect" aria-label="Measurement units" style="width:auto"><option value="imperial">ft / sq ft</option><option value="metric">m / m²</option></select>
+      <button class="btn mobile-toggle" id="menuBtn">Tools</button>
+      <button class="btn" id="importBtn">Import</button>
+      <input id="importInput" type="file" accept="application/json,.json" hidden />
+      <button class="btn" id="exportBtn">Export plan</button>
+    </div>
+  </header>
+  <main class="layout">
+    <aside class="sidebar" id="sidebar">
+      <section class="section">
+        <h3>Base</h3>
+        <div class="segmented">
+          <button id="satelliteTab" class="active">Satellite</button>
+          <button id="imageTab">Upload image</button>
+        </div>
+        <div id="satelliteControls">
+          <div class="hint">Use live satellite imagery, pan to the property, then draw directly at geographic scale.</div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn" id="locateBtn" style="flex:1">Use my location</button>
+            <button class="btn" id="changeTokenBtn">Map token</button>
+          </div>
+        </div>
+        <div id="imageControls" style="display:none">
+          <div class="field"><label>Property photo / screenshot / site plan</label><input type="file" id="imageUpload" accept="image/*" /></div>
+          <button class="btn" id="calibrateBtn" style="width:100%;margin-top:8px">Calibrate scale</button>
+          <div class="hint" id="scaleHint">After upload, click two points with a known real-world distance.</div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3>Add to plan</h3>
+        <div class="tool-grid">
+          <button class="tool" data-tool="property"><span class="swatch property"></span><span>Property</span></button>
+          <button class="tool" data-tool="bed"><span class="swatch bed"></span><span>Planting bed</span></button>
+          <button class="tool" data-tool="pergola"><span class="swatch pergola"></span><span>Pergola</span></button>
+          <button class="tool" data-tool="path"><span class="swatch path"></span><span>Path</span></button>
+          <button class="tool" data-tool="tree"><span class="swatch tree"></span><span>Tree</span></button>
+        </div>
+        <div id="pergolaFields" style="display:none;margin-top:8px">
+          <div class="row">
+            <div class="field" style="flex:1;margin:0"><label>Width</label><input id="pergolaWidth" type="number" min="1" step="0.5" value="10" /></div>
+            <div class="field" style="flex:1;margin:0"><label>Depth</label><input id="pergolaDepth" type="number" min="1" step="0.5" value="10" /></div>
+          </div>
+          <div class="hint">Then click the plan to place it. Dimensions use your selected units.</div>
+        </div>
+        <div id="pathFields" style="display:none;margin-top:8px">
+          <div class="field"><label>Path width</label><input id="pathWidth" type="number" min="0.5" step="0.5" value="3" /></div>
+        </div>
+        <div id="treeFields" style="display:none;margin-top:8px">
+          <div class="field"><label>Canopy diameter</label><input id="treeCanopy" type="number" min="1" step="0.5" value="12" /></div>
+        </div>
+        <div class="hint" id="toolHint">Choose an object, then draw it on the plan.</div>
+      </section>
+
+      <section class="section" id="selectedSection" style="display:none">
+        <h3>Selected</h3>
+        <div class="field"><label>Name</label><input id="selectedName" /></div>
+        <div id="selectedMeasure" class="hint"></div>
+        <div id="selectedPergolaFields" style="display:none">
+          <div class="row" style="margin-top:8px">
+            <div class="field" style="flex:1;margin:0"><label>Width</label><input id="selectedPergolaWidth" type="number" min="1" step="0.5" /></div>
+            <div class="field" style="flex:1;margin:0"><label>Depth</label><input id="selectedPergolaDepth" type="number" min="1" step="0.5" /></div>
+          </div>
+        </div>
+        <div id="selectedPathFields" style="display:none">
+          <div class="field"><label>Path width</label><input id="selectedPathWidth" type="number" min="0.5" step="0.5" /></div>
+        </div>
+        <div id="selectedTreeFields" style="display:none">
+          <div class="field"><label>Canopy diameter</label><input id="selectedTreeCanopy" type="number" min="1" step="0.5" /></div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn primary" id="applySelected" style="flex:1">Apply changes</button>
+          <button class="btn danger" id="deleteSelected">Delete</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3>Objects</h3>
+        <div class="objects" id="objectList"></div>
+        <div class="hint" id="objectEmpty">Nothing drawn yet.</div>
+      </section>
+
+      <section class="section">
+        <h3>Visualization</h3>
+        <div class="field"><label>Style</label><select id="vizStyle"><option>Naturalistic</option><option>Modern</option><option>Formal</option><option>Cottage garden</option><option>Productive kitchen garden</option></select></div>
+        <button class="btn" id="vizPromptBtn" style="width:100%;margin-top:8px">Build AI visualization prompt</button>
+        <div class="hint">This creates a prompt from the measured plan. Use the exported plan or property screenshot as the visual reference. The geometry stays authoritative.</div>
+      </section>
+
+      <section class="section">
+        <h3>Project</h3>
+        <div class="hint">Changes are autosaved in this browser. Export a JSON backup before switching devices.</div>
+        <button class="btn danger" id="resetBtn" style="width:100%;margin-top:8px">Reset local project</button>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <div id="map"></div>
+      <div id="imageWorkspace">
+        <svg id="imageCanvas" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="empty-image" id="imageEmpty"><div class="empty-card"><strong>Upload a property image</strong><br/><span style="font-size:13px">A satellite screenshot, survey, or hand-drawn plan works. Then calibrate one known distance to make measurements meaningful.</span></div></div>
+      </div>
+      <div class="status" id="status">Satellite mode · pan/zoom to your property</div>
+      <div class="floating"><button class="btn" id="clearToolBtn">Exit drawing</button></div>
+      <div class="token-gate" id="tokenGate">
+        <div class="token-card">
+          <h2>Connect satellite imagery</h2>
+          <p>Paste a public Mapbox access token. It is saved only in this browser. You can also skip satellite mode and use an uploaded screenshot.</p>
+          <div class="field"><label>Mapbox public token</label><input id="tokenInput" type="password" placeholder="pk.ey..." /></div>
+          <div class="row" style="margin-top:10px"><button class="btn primary" id="saveTokenBtn" style="flex:1">Load satellite map</button><button class="btn" id="skipTokenBtn">Use image instead</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.27.0/mapbox-gl.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.5.1/mapbox-gl-draw.js"></script>
+<script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(key, fallback = null) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn('Could not persist', key, e); } }
+  };
+
+  const state = {
+    mode: 'satellite',
+    unit: store.get('plotline.unit', 'imperial'),
+    tool: null,
+    map: null,
+    draw: null,
+    selectedId: null,
+    pendingMapClick: null,
+    satelliteObjects: store.get('plotline.mapObjects', {}),
+    image: {
+      src: null,
+      width: 0,
+      height: 0,
+      metersPerPixel: store.get('plotline.imageScale', null),
+      objects: store.get('plotline.imageObjects', []),
+      draft: [],
+      calibration: []
+    }
+  };
+
+  const kindLabel = { property: 'Property', bed: 'Planting bed', pergola: 'Pergola', path: 'Path', tree: 'Tree' };
+  const unitSelect = $('unitSelect'); unitSelect.value = state.unit;
+
+  function toMeters(value) { return state.unit === 'imperial' ? Number(value) * 0.3048 : Number(value); }
+  function fromMeters(value) { return state.unit === 'imperial' ? value / 0.3048 : value; }
+  function lengthText(m) { if (!Number.isFinite(m)) return '—'; return state.unit === 'imperial' ? `${(m * 3.28084).toFixed(m < 30 ? 1 : 0)} ft` : `${m.toFixed(m < 10 ? 1 : 0)} m`; }
+  function areaText(m2) { if (!Number.isFinite(m2)) return '—'; return state.unit === 'imperial' ? `${Math.round(m2 * 10.7639).toLocaleString()} sq ft` : `${m2.toFixed(m2 < 20 ? 1 : 0)} m²`; }
+  function uid() { return (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`); }
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+
+  function setStatus(text) { $('status').textContent = text; }
+  function clearTool() {
+    state.tool = null; state.pendingMapClick = null; state.image.draft = []; state.image.calibration = [];
+    document.querySelectorAll('.tool').forEach(b => b.classList.remove('active'));
+    $('pergolaFields').style.display = 'none'; $('pathFields').style.display = 'none'; $('treeFields').style.display = 'none';
+    $('toolHint').textContent = 'Choose an object, then draw it on the plan.';
+    if (state.mode === 'satellite' && state.draw) { try { state.draw.changeMode('simple_select'); } catch {} }
+    renderImage();
+    setStatus(state.mode === 'satellite' ? 'Satellite mode · pan/zoom to your property' : 'Image mode · choose an object to draw');
+  }
+
+  function chooseTool(kind) {
+    clearTool(); state.tool = kind;
+    document.querySelector(`.tool[data-tool="${kind}"]`)?.classList.add('active');
+    $('pergolaFields').style.display = kind === 'pergola' ? 'block' : 'none';
+    $('pathFields').style.display = kind === 'path' ? 'block' : 'none';
+    $('treeFields').style.display = kind === 'tree' ? 'block' : 'none';
+    if (state.mode === 'satellite') startMapTool(kind); else startImageTool(kind);
+  }
+
+  function initMap(token) {
+    if (!token || !token.startsWith('pk.')) { alert('Please enter a valid public Mapbox token beginning with pk.'); return; }
+    localStorage.setItem('plotline.mapboxToken', token);
+    mapboxgl.accessToken = token;
+    if (state.map) { $('tokenGate').style.display = 'none'; return; }
+    state.map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/standard-satellite', center: [-73.98, 40.75], zoom: 17, pitch: 0, attributionControl: true });
+    state.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    state.draw = new MapboxDraw({ displayControlsDefault: false, userProperties: true, controls: {}, styles: drawStyles() });
+    state.map.addControl(state.draw);
+    state.map.on('load', () => {
+      const saved = store.get('plotline.mapGeoJSON', null);
+      if (saved?.features?.length) state.draw.set(saved);
+      syncSatelliteMeta(); updateObjectList();
+    });
+    ['draw.create','draw.update','draw.delete','draw.selectionchange'].forEach(ev => state.map.on(ev, handleDrawEvent));
+    state.map.on('click', handleMapClick);
+    $('tokenGate').style.display = 'none';
+  }
+
+  function drawStyles() {
+    return [
+      { id:'gl-draw-polygon-fill-inactive', type:'fill', filter:['all',['==','active','false'],['==','$type','Polygon']], paint:{'fill-color':['match',['get','user_kind'],'property','#5d6f85','bed','#4e8c59','pergola','#a87543','#4e8c59'],'fill-opacity':0.22} },
+      { id:'gl-draw-polygon-fill-active', type:'fill', filter:['all',['==','active','true'],['==','$type','Polygon']], paint:{'fill-color':'#2f6b4f','fill-opacity':0.18} },
+      { id:'gl-draw-polygon-stroke-inactive', type:'line', filter:['all',['==','active','false'],['==','$type','Polygon']], paint:{'line-color':['match',['get','user_kind'],'property','#5d6f85','bed','#4e8c59','pergola','#a87543','#4e8c59'],'line-width':2.5} },
+      { id:'gl-draw-polygon-stroke-active', type:'line', filter:['all',['==','active','true'],['==','$type','Polygon']], paint:{'line-color':'#173f2d','line-dasharray':[0.2,2],'line-width':2.5} },
+      { id:'gl-draw-line-inactive', type:'line', filter:['all',['==','active','false'],['==','$type','LineString']], paint:{'line-color':'#b2a893','line-width':['coalesce',['get','user_visualWidth'],6]} },
+      { id:'gl-draw-line-active', type:'line', filter:['all',['==','active','true'],['==','$type','LineString']], paint:{'line-color':'#6d6557','line-dasharray':[0.2,2],'line-width':6} },
+      { id:'gl-draw-point-inactive', type:'circle', filter:['all',['==','active','false'],['==','$type','Point']], paint:{'circle-radius':9,'circle-color':'#2d6940','circle-stroke-color':'#fff','circle-stroke-width':2} },
+      { id:'gl-draw-point-active', type:'circle', filter:['all',['==','active','true'],['==','$type','Point']], paint:{'circle-radius':10,'circle-color':'#1f4c31','circle-stroke-color':'#fff','circle-stroke-width':3} },
+      { id:'gl-draw-polygon-and-line-vertex-inactive', type:'circle', filter:['all',['==','meta','vertex'],['==','$type','Point']], paint:{'circle-radius':5,'circle-color':'#fff','circle-stroke-color':'#2f6b4f','circle-stroke-width':2} },
+      { id:'gl-draw-polygon-midpoint', type:'circle', filter:['all',['==','meta','midpoint'],['==','$type','Point']], paint:{'circle-radius':3,'circle-color':'#2f6b4f'} }
+    ];
+  }
+
+  function startMapTool(kind) {
+    if (!state.draw) { setStatus('Add your Mapbox token first, or switch to image mode'); return; }
+    if (kind === 'property' || kind === 'bed') {
+      state.draw.changeMode('draw_polygon'); setStatus(`Draw the ${kindLabel[kind].toLowerCase()} · click vertices, double-click to finish`);
+    } else if (kind === 'path') {
+      state.draw.changeMode('draw_line_string'); setStatus('Draw a path centerline · click points, double-click to finish');
+    } else if (kind === 'pergola') {
+      state.pendingMapClick = 'pergola'; setStatus('Click where the center of the pergola should go');
+    } else if (kind === 'tree') {
+      state.pendingMapClick = 'tree'; setStatus('Click to place a tree');
+    }
+  }
+
+  function handleMapClick(e) {
+    if (!state.pendingMapClick || !state.draw) return;
+    const kind = state.pendingMapClick;
+    if (kind === 'tree') {
+      const id = state.draw.add({ type:'Feature', properties:{ kind:'tree' }, geometry:{ type:'Point', coordinates:[e.lngLat.lng,e.lngLat.lat] } })[0];
+      const name = nextName('tree'); state.satelliteObjects[id] = { kind:'tree', name, canopyM: toMeters($('treeCanopy').value) }; state.draw.setFeatureProperty(id,'kind','tree');
+      finishMapObject(id, 'tree');
+    } else if (kind === 'pergola') {
+      const widthM = toMeters($('pergolaWidth').value), depthM = toMeters($('pergolaDepth').value);
+      if (!(widthM > 0 && depthM > 0)) return alert('Enter valid pergola dimensions.');
+      const center = turf.point([e.lngLat.lng,e.lngLat.lat]);
+      const north = turf.destination(center, depthM/2/1000, 0, {units:'kilometers'});
+      const south = turf.destination(center, depthM/2/1000, 180, {units:'kilometers'});
+      const nw = turf.destination(north, widthM/2/1000, 270, {units:'kilometers'}).geometry.coordinates;
+      const ne = turf.destination(north, widthM/2/1000, 90, {units:'kilometers'}).geometry.coordinates;
+      const se = turf.destination(south, widthM/2/1000, 90, {units:'kilometers'}).geometry.coordinates;
+      const sw = turf.destination(south, widthM/2/1000, 270, {units:'kilometers'}).geometry.coordinates;
+      const id = state.draw.add({type:'Feature',properties:{kind:'pergola'},geometry:{type:'Polygon',coordinates:[[nw,ne,se,sw,nw]]}})[0];
+      state.satelliteObjects[id] = {kind:'pergola',name:nextName('pergola'),widthM,depthM}; state.draw.setFeatureProperty(id,'kind','pergola');
+      finishMapObject(id, 'pergola');
+    }
+  }
+
+  function handleDrawEvent(e) {
+    if (e.type === 'draw.selectionchange') {
+      state.selectedId = e.features?.[0]?.id || null; refreshSelected(); updateObjectList(); return;
+    }
+    if (e.type === 'draw.create' && e.features?.[0]) {
+      const f = e.features[0]; let kind = state.tool;
+      if (!kind || kind === 'pergola' || kind === 'tree') kind = f.geometry.type === 'LineString' ? 'path' : 'bed';
+      state.satelliteObjects[f.id] = state.satelliteObjects[f.id] || { kind, name: nextName(kind) };
+      if (kind === 'path') state.satelliteObjects[f.id].widthM = toMeters($('pathWidth').value);
+      state.draw.setFeatureProperty(f.id, 'kind', kind);
+      if (kind === 'path') state.draw.setFeatureProperty(f.id, 'visualWidth', 7);
+      finishMapObject(f.id, kind);
+    } else if (e.type === 'draw.delete') {
+      (e.features || []).forEach(f => delete state.satelliteObjects[f.id]);
+      persistMap(); state.selectedId = null; refreshSelected(); updateObjectList();
+    } else if (e.type === 'draw.update') {
+      persistMap(); refreshSelected(); updateObjectList();
+    }
+  }
+
+  function finishMapObject(id, kind) {
+    persistMap(); state.selectedId = id;
+    try { state.draw.changeMode('simple_select',{featureIds:[id]}); } catch {}
+    state.pendingMapClick = null; state.tool = null; document.querySelectorAll('.tool').forEach(b => b.classList.remove('active'));
+    $('pergolaFields').style.display='none'; $('pathFields').style.display='none'; $('treeFields').style.display='none';
+    refreshSelected(); updateObjectList(); setStatus(`${kindLabel[kind]} added · select it to edit or move`);
+  }
+
+  function syncSatelliteMeta() {
+    if (!state.draw) return;
+    state.draw.getAll().features.forEach(f => {
+      const meta = state.satelliteObjects[f.id] || {kind: f.geometry.type === 'LineString' ? 'path' : f.geometry.type === 'Point' ? 'tree' : 'bed', name:'Object'};
+      state.satelliteObjects[f.id] = meta; state.draw.setFeatureProperty(f.id,'kind',meta.kind);
+    });
+    persistMap();
+  }
+
+  function persistMap() { if (state.draw) store.set('plotline.mapGeoJSON', state.draw.getAll()); store.set('plotline.mapObjects', state.satelliteObjects); }
+
+  function mapMeasurement(id) {
+    if (!state.draw) return '';
+    const f = state.draw.get(id), meta = state.satelliteObjects[id]; if (!f || !meta) return '';
+    if (f.geometry.type === 'Polygon') {
+      const a = turf.area(f), p = turf.length(turf.polygonToLine(f), {units:'kilometers'})*1000;
+      if (meta.kind === 'pergola' && meta.widthM && meta.depthM) return `${lengthText(meta.widthM)} × ${lengthText(meta.depthM)} · ${areaText(a)}`;
+      return `${areaText(a)} · perimeter ${lengthText(p)}`;
+    }
+    if (f.geometry.type === 'LineString') return `${lengthText(turf.length(f,{units:'kilometers'})*1000)} long${meta.widthM ? ` · ${lengthText(meta.widthM)} wide` : ''}`;
+    return meta.canopyM ? `Tree · canopy ${lengthText(meta.canopyM)}` : 'Placed tree';
+  }
+
+  function locate() {
+    if (!navigator.geolocation) return alert('Geolocation is not available in this browser.');
+    navigator.geolocation.getCurrentPosition(pos => {
+      if (!state.map) return;
+      state.map.flyTo({center:[pos.coords.longitude,pos.coords.latitude],zoom:19});
+    }, err => alert(`Could not get location: ${err.message}`), {enableHighAccuracy:true,timeout:10000});
+  }
+
+  // ---------- Uploaded image planner ----------
+  const svg = $('imageCanvas');
+  function loadImage(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        state.image.src = reader.result; state.image.width = img.naturalWidth; state.image.height = img.naturalHeight;
+        svg.setAttribute('viewBox', `0 0 ${img.naturalWidth} ${img.naturalHeight}`);
+        $('imageEmpty').style.display='none'; renderImage(); setStatus('Image loaded · calibrate scale before measuring');
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function svgPoint(evt) {
+    const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+  function imagePixelDistance(points) { let d=0; for(let i=1;i<points.length;i++) d += Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y); return d; }
+  function imagePolygonArea(points) { let a=0; for(let i=0,j=points.length-1;i<points.length;j=i++) a += (points[j].x*points[i].y - points[i].x*points[j].y); return Math.abs(a/2); }
+
+  function imageMeasurement(obj) {
+    const s = state.image.metersPerPixel;
+    if (!s) return 'Scale not calibrated';
+    if (obj.kind === 'tree') return obj.canopyM ? `Tree · canopy ${lengthText(obj.canopyM)}` : 'Placed tree';
+    if (obj.kind === 'pergola') return `${lengthText(obj.widthM)} × ${lengthText(obj.depthM)} · ${areaText(obj.widthM*obj.depthM)}`;
+    if (obj.kind === 'path') return `${lengthText(imagePixelDistance(obj.points)*s)} long · ${lengthText(obj.widthM || 0)} wide`;
+    return `${areaText(imagePolygonArea(obj.points)*s*s)} · perimeter ${lengthText(imagePixelDistance([...obj.points,obj.points[0]])*s)}`;
+  }
+
+  function startImageTool(kind) {
+    if (!state.image.src) { setStatus('Upload an image first'); return; }
+    if ((kind === 'property' || kind === 'bed' || kind === 'path') && !state.image.metersPerPixel) setStatus('You can draw now, but calibrate the scale to get measurements');
+    else if (kind === 'pergola') setStatus('Click where the center of the pergola should go');
+    else if (kind === 'tree') setStatus('Click to place a tree');
+    else setStatus(`Draw the ${kindLabel[kind].toLowerCase()} · click points, double-click to finish`);
+  }
+
+  function startCalibration() {
+    if (!state.image.src) return alert('Upload an image first.');
+    clearTool(); state.tool = 'calibrate'; state.image.calibration=[]; setStatus('Calibration: click the two ends of a known distance'); renderImage();
+  }
+
+  svg.addEventListener('click', (e) => {
+    if (!state.image.src) return;
+    const p = svgPoint(e);
+    if (state.tool === 'calibrate') {
+      state.image.calibration.push(p); renderImage();
+      if (state.image.calibration.length === 2) {
+        const val = Number(prompt(`What is the real distance between those points, in ${state.unit === 'imperial' ? 'feet' : 'meters'}?`, state.unit === 'imperial' ? '20' : '6'));
+        if (val > 0) {
+          const meters = toMeters(val), px = imagePixelDistance(state.image.calibration);
+          state.image.metersPerPixel = meters/px; store.set('plotline.imageScale', state.image.metersPerPixel);
+          $('scaleHint').textContent = `Scale calibrated · 100 px ≈ ${lengthText(state.image.metersPerPixel*100)}`;
+        }
+        clearTool(); renderImage(); updateObjectList();
+      }
+      return;
+    }
+    if (!state.tool) return;
+    if (state.tool === 'tree') {
+      addImageObject({id:uid(),kind:'tree',name:nextName('tree'),point:p,canopyM:toMeters($('treeCanopy').value)}); clearTool(); return;
+    }
+    if (state.tool === 'pergola') {
+      if (!state.image.metersPerPixel) return alert('Calibrate the image scale before placing a sized pergola.');
+      const widthM = toMeters($('pergolaWidth').value), depthM=toMeters($('pergolaDepth').value);
+      addImageObject({id:uid(),kind:'pergola',name:nextName('pergola'),center:p,widthM,depthM}); clearTool(); return;
+    }
+    if (state.tool === 'property' || state.tool === 'bed' || state.tool === 'path') {
+      state.image.draft.push(p); renderImage();
+    }
+  });
+  svg.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    if (!['property','bed','path'].includes(state.tool) || state.image.draft.length < (state.tool === 'path' ? 2 : 3)) return;
+    const kind = state.tool, points=[...state.image.draft];
+    // A browser dblclick also emits the second click. Drop that duplicate endpoint.
+    if (points.length > (kind === 'path' ? 2 : 3)) points.pop();
+    addImageObject({id:uid(),kind,name:nextName(kind),points,widthM:kind==='path'?toMeters($('pathWidth').value):undefined});
+    clearTool();
+  });
+
+  function addImageObject(obj) { state.image.objects.push(obj); state.selectedId=obj.id; persistImage(); renderImage(); refreshSelected(); updateObjectList(); setStatus(`${kindLabel[obj.kind]} added`); }
+  function persistImage(){ store.set('plotline.imageObjects',state.image.objects); store.set('plotline.imageScale',state.image.metersPerPixel); }
+
+  function renderImage() {
+    svg.innerHTML='';
+    if (!state.image.src) return;
+    const ns='http://www.w3.org/2000/svg';
+    const base=document.createElementNS(ns,'image'); base.setAttribute('href',state.image.src); base.setAttribute('x','0'); base.setAttribute('y','0'); base.setAttribute('width',state.image.width); base.setAttribute('height',state.image.height); base.setAttribute('preserveAspectRatio','xMidYMid meet'); svg.appendChild(base);
+    state.image.objects.forEach(o => svg.appendChild(renderSvgObject(o)));
+    if (state.image.draft.length) {
+      const shape=document.createElementNS(ns, state.tool==='path'?'polyline':'polygon'); shape.setAttribute('points',state.image.draft.map(p=>`${p.x},${p.y}`).join(' ')); shape.setAttribute('fill',state.tool==='path'?'none':'rgba(78,140,89,.18)'); shape.setAttribute('stroke','#2f6b4f'); shape.setAttribute('stroke-width','3'); shape.setAttribute('stroke-dasharray','8 6'); shape.setAttribute('vector-effect','non-scaling-stroke'); svg.appendChild(shape);
+      state.image.draft.forEach(p=>{ const c=document.createElementNS(ns,'circle'); c.setAttribute('cx',p.x); c.setAttribute('cy',p.y); c.setAttribute('r','5'); c.setAttribute('class','calibration-point'); svg.appendChild(c); });
+    }
+    state.image.calibration.forEach((p,i)=>{ const c=document.createElementNS(ns,'circle'); c.setAttribute('cx',p.x); c.setAttribute('cy',p.y); c.setAttribute('r','7'); c.setAttribute('class','calibration-point'); svg.appendChild(c); if(i===1){const l=document.createElementNS(ns,'line');l.setAttribute('x1',state.image.calibration[0].x);l.setAttribute('y1',state.image.calibration[0].y);l.setAttribute('x2',p.x);l.setAttribute('y2',p.y);l.setAttribute('stroke','#111');l.setAttribute('stroke-width','2');l.setAttribute('stroke-dasharray','8 5');l.setAttribute('vector-effect','non-scaling-stroke');svg.insertBefore(l,c);} });
+  }
+
+  function renderSvgObject(o) {
+    const ns='http://www.w3.org/2000/svg'; let el;
+    if (o.kind==='tree') {
+      el=document.createElementNS(ns,'circle'); el.setAttribute('cx',o.point.x); el.setAttribute('cy',o.point.y); const canopyPx=(o.canopyM&&state.image.metersPerPixel)?(o.canopyM/state.image.metersPerPixel)/2:Math.max(8,Math.min(state.image.width,state.image.height)*.012); el.setAttribute('r',Math.max(6,canopyPx)); el.setAttribute('fill','rgba(45,105,64,.62)'); el.setAttribute('stroke','#225431'); el.setAttribute('stroke-width','3');
+    } else if (o.kind==='pergola') {
+      const s=state.image.metersPerPixel || 1, w=o.widthM/s, h=o.depthM/s; el=document.createElementNS(ns,'rect'); el.setAttribute('x',o.center.x-w/2); el.setAttribute('y',o.center.y-h/2); el.setAttribute('width',w); el.setAttribute('height',h); el.setAttribute('fill','rgba(168,117,67,.26)'); el.setAttribute('stroke','#a87543'); el.setAttribute('stroke-width','3');
+    } else if (o.kind==='path') {
+      el=document.createElementNS(ns,'polyline'); el.setAttribute('points',o.points.map(p=>`${p.x},${p.y}`).join(' ')); el.setAttribute('fill','none'); el.setAttribute('stroke','#b2a893'); const px=(o.widthM && state.image.metersPerPixel)?o.widthM/state.image.metersPerPixel:8; el.setAttribute('stroke-width',Math.max(5,px)); el.setAttribute('stroke-linecap','round'); el.setAttribute('stroke-linejoin','round');
+    } else {
+      el=document.createElementNS(ns,'polygon'); el.setAttribute('points',o.points.map(p=>`${p.x},${p.y}`).join(' ')); el.setAttribute('fill',o.kind==='property'?'rgba(93,111,133,.15)':'rgba(78,140,89,.22)'); el.setAttribute('stroke',o.kind==='property'?'#5d6f85':'#4e8c59'); el.setAttribute('stroke-width','3');
+    }
+    el.setAttribute('data-id',o.id); el.classList.add('svg-object'); if(o.id===state.selectedId) el.classList.add('selected'); el.setAttribute('vector-effect','non-scaling-stroke');
+    el.addEventListener('click',ev=>{ if(state.tool) return; ev.stopPropagation(); state.selectedId=o.id; renderImage(); refreshSelected(); updateObjectList(); });
+    return el;
+  }
+
+  // ---------- Selection / list / export ----------
+  function currentObjects() {
+    if (state.mode==='image') return state.image.objects.map(o=>({id:o.id,kind:o.kind,name:o.name,measurement:imageMeasurement(o)}));
+    if (!state.draw) return [];
+    return state.draw.getAll().features.map(f=>{ const m=state.satelliteObjects[f.id] || {}; return {id:f.id,kind:m.kind || 'bed',name:m.name || 'Object',measurement:mapMeasurement(f.id)}; });
+  }
+  function nextName(kind, count=true) {
+    const objects=currentObjects().filter(o=>o.kind===kind); return `${kindLabel[kind]} ${objects.length + (count?1:0)}`;
+  }
+  function updateObjectList() {
+    const list=$('objectList'), items=currentObjects(); list.innerHTML=''; $('objectEmpty').style.display=items.length?'none':'block';
+    items.forEach(o=>{ const card=document.createElement('div'); card.className='object-card'+(o.id===state.selectedId?' selected':''); card.innerHTML=`<div class="object-title"><span>${esc(o.name)}</span><span class="swatch ${esc(o.kind)}"></span></div><div class="object-meta">${esc(o.measurement)}</div>`; card.onclick=()=>selectObject(o.id); list.appendChild(card); });
+  }
+  function selectObject(id) {
+    state.selectedId=id;
+    if(state.mode==='image'){ renderImage(); }
+    else if(state.draw){ try{state.draw.changeMode('simple_select',{featureIds:[id]});}catch{} }
+    refreshSelected(); updateObjectList();
+  }
+  function selectedObject() {
+    if(!state.selectedId) return null;
+    if(state.mode==='image') return state.image.objects.find(o=>o.id===state.selectedId)||null;
+    const f=state.draw?.get(state.selectedId), m=state.satelliteObjects[state.selectedId]; return f&&m?{id:state.selectedId,...m,feature:f}:null;
+  }
+  function refreshSelected() {
+    const o=selectedObject(); $('selectedSection').style.display=o?'block':'none';
+    ['selectedPergolaFields','selectedPathFields','selectedTreeFields'].forEach(id => $(id).style.display='none');
+    if(!o)return;
+    $('selectedName').value=o.name||''; $('selectedMeasure').textContent=state.mode==='image'?imageMeasurement(o):mapMeasurement(o.id);
+    if(o.kind==='pergola') {
+      $('selectedPergolaFields').style.display='block';
+      $('selectedPergolaWidth').value=(fromMeters(o.widthM||0)).toFixed(1).replace(/\.0$/,'');
+      $('selectedPergolaDepth').value=(fromMeters(o.depthM||0)).toFixed(1).replace(/\.0$/,'');
+    } else if(o.kind==='path') {
+      $('selectedPathFields').style.display='block';
+      $('selectedPathWidth').value=(fromMeters(o.widthM||0)).toFixed(1).replace(/\.0$/,'');
+    } else if(o.kind==='tree') {
+      $('selectedTreeFields').style.display='block';
+      $('selectedTreeCanopy').value=(fromMeters(o.canopyM||toMeters(12))).toFixed(1).replace(/\.0$/,'');
+    }
+  }
+  $('selectedName').addEventListener('change',()=>{ const o=selectedObject(); if(!o)return; o.name=$('selectedName').value.trim()||kindLabel[o.kind]; if(state.mode==='image')persistImage(); else {state.satelliteObjects[o.id].name=o.name;persistMap();} updateObjectList(); });
+
+  function rectangleAround(lng, lat, widthM, depthM) {
+    const center=turf.point([lng,lat]);
+    const north=turf.destination(center, depthM/2/1000, 0, {units:'kilometers'});
+    const south=turf.destination(center, depthM/2/1000, 180, {units:'kilometers'});
+    const nw=turf.destination(north, widthM/2/1000, 270, {units:'kilometers'}).geometry.coordinates;
+    const ne=turf.destination(north, widthM/2/1000, 90, {units:'kilometers'}).geometry.coordinates;
+    const se=turf.destination(south, widthM/2/1000, 90, {units:'kilometers'}).geometry.coordinates;
+    const sw=turf.destination(south, widthM/2/1000, 270, {units:'kilometers'}).geometry.coordinates;
+    return [nw,ne,se,sw,nw];
+  }
+
+  $('applySelected').onclick=()=>{
+    const o=selectedObject(); if(!o)return;
+    const newName=$('selectedName').value.trim()||kindLabel[o.kind];
+    if(state.mode==='image') {
+      o.name=newName;
+      if(o.kind==='pergola') { o.widthM=toMeters($('selectedPergolaWidth').value); o.depthM=toMeters($('selectedPergolaDepth').value); }
+      if(o.kind==='path') o.widthM=toMeters($('selectedPathWidth').value);
+      if(o.kind==='tree') o.canopyM=toMeters($('selectedTreeCanopy').value);
+      persistImage(); renderImage();
+    } else if(state.draw) {
+      const meta=state.satelliteObjects[o.id]; meta.name=newName;
+      if(o.kind==='pergola') {
+        const widthM=toMeters($('selectedPergolaWidth').value), depthM=toMeters($('selectedPergolaDepth').value);
+        if(!(widthM>0&&depthM>0)) return alert('Enter valid pergola dimensions.');
+        meta.widthM=widthM; meta.depthM=depthM;
+        const center=turf.centerOfMass(o.feature).geometry.coordinates;
+        const feature={...o.feature,geometry:{type:'Polygon',coordinates:[rectangleAround(center[0],center[1],widthM,depthM)]}};
+        state.draw.add(feature); state.draw.setFeatureProperty(o.id,'kind','pergola');
+      }
+      if(o.kind==='path') meta.widthM=toMeters($('selectedPathWidth').value);
+      if(o.kind==='tree') meta.canopyM=toMeters($('selectedTreeCanopy').value);
+      persistMap();
+    }
+    refreshSelected(); updateObjectList(); setStatus('Changes applied');
+  };
+
+  $('deleteSelected').onclick=()=>{ if(!state.selectedId)return; if(state.mode==='image'){state.image.objects=state.image.objects.filter(o=>o.id!==state.selectedId);persistImage();renderImage();} else if(state.draw){state.draw.delete(state.selectedId);delete state.satelliteObjects[state.selectedId];persistMap();} state.selectedId=null;refreshSelected();updateObjectList(); };
+
+  function exportPlan() {
+    const payload={ version:2, exportedAt:new Date().toISOString(), units:state.unit, mode:state.mode, scaleMetersPerPixel:state.image.metersPerPixel, imageSource:state.image.src, imageWidth:state.image.width, imageHeight:state.image.height, imageObjects:state.image.objects, satelliteGeoJSON:state.draw?state.draw.getAll():store.get('plotline.mapGeoJSON',{type:'FeatureCollection',features:[]}), satelliteMetadata:state.satelliteObjects };
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}), a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='plotline-garden-plan.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+
+  async function importPlan(file) {
+    if(!file) return;
+    try {
+      const payload=JSON.parse(await file.text());
+      if(!payload || !payload.version) throw new Error('Not a Plotline plan file.');
+      state.unit=payload.units||state.unit; unitSelect.value=state.unit; store.set('plotline.unit',state.unit);
+      state.satelliteObjects=payload.satelliteMetadata||{}; store.set('plotline.mapObjects',state.satelliteObjects);
+      if(payload.satelliteGeoJSON) store.set('plotline.mapGeoJSON',payload.satelliteGeoJSON);
+      state.image.objects=payload.imageObjects||[]; state.image.metersPerPixel=payload.scaleMetersPerPixel||null; persistImage();
+      if(payload.imageSource) {
+        state.image.src=payload.imageSource; state.image.width=payload.imageWidth||1000; state.image.height=payload.imageHeight||1000;
+        svg.setAttribute('viewBox',`0 0 ${state.image.width} ${state.image.height}`); $('imageEmpty').style.display='none';
+      }
+      if(state.draw && payload.satelliteGeoJSON) { state.draw.set(payload.satelliteGeoJSON); syncSatelliteMeta(); }
+      switchMode(payload.mode==='image'?'image':'satellite'); renderImage(); updateObjectList(); setStatus('Plan imported');
+    } catch(err) { alert(`Could not import plan: ${err.message}`); }
+  }
+
+  function buildVisualizationPrompt() {
+    const style=$('vizStyle').value;
+    const items=currentObjects();
+    const summary=items.length ? items.map(o=>`- ${o.name} (${kindLabel[o.kind]||o.kind}): ${o.measurement}`).join('\n') : '- No placed objects yet';
+    const prompt=`Create a realistic landscape-design visualization based on the attached property image or satellite screenshot and the measured plan overlay. Preserve the property geometry, relative positions, dimensions, paths, planting areas, pergola footprint, and tree locations exactly. Do not move structures or invent extra hardscape. Style: ${style}.\n\nMeasured plan:\n${summary}\n\nUse the reference image for camera angle and existing site conditions. Make the result feel buildable rather than conceptual, with realistic plant scale and mature tree canopy. Keep the measured plan as the source of truth.`;
+    if(navigator.clipboard?.writeText) navigator.clipboard.writeText(prompt).then(()=>setStatus('AI visualization prompt copied to clipboard')).catch(()=>window.prompt('Copy this visualization prompt:',prompt));
+    else window.prompt('Copy this visualization prompt:',prompt);
+  }
+
+  function switchMode(mode) {
+    clearTool(); state.mode=mode; state.selectedId=null;
+    $('satelliteTab').classList.toggle('active',mode==='satellite'); $('imageTab').classList.toggle('active',mode==='image');
+    $('satelliteControls').style.display=mode==='satellite'?'block':'none'; $('imageControls').style.display=mode==='image'?'block':'none';
+    $('map').style.display=mode==='satellite'?'block':'none'; $('imageWorkspace').style.display=mode==='image'?'block':'none';
+    const token=localStorage.getItem('plotline.mapboxToken'); $('tokenGate').style.display=(mode==='satellite'&&!state.map)?'grid':'none';
+    if(mode==='satellite'&&token&&!state.map)initMap(token); if(mode==='satellite'&&state.map)setTimeout(()=>state.map.resize(),10);
+    if(mode==='image')renderImage(); refreshSelected();updateObjectList();
+    setStatus(mode==='satellite'?'Satellite mode · pan/zoom to your property':'Image mode · upload and calibrate a property image');
+  }
+
+  document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>chooseTool(b.dataset.tool));
+  $('clearToolBtn').onclick=clearTool; $('satelliteTab').onclick=()=>switchMode('satellite'); $('imageTab').onclick=()=>switchMode('image');
+  $('imageUpload').onchange=e=>loadImage(e.target.files?.[0]); $('calibrateBtn').onclick=startCalibration; $('locateBtn').onclick=locate; $('exportBtn').onclick=exportPlan; $('importBtn').onclick=()=>$('importInput').click(); $('importInput').onchange=e=>importPlan(e.target.files?.[0]); $('vizPromptBtn').onclick=buildVisualizationPrompt;
+  $('unitSelect').onchange=e=>{ state.unit=e.target.value;store.set('plotline.unit',state.unit);refreshSelected();updateObjectList(); if(state.image.metersPerPixel)$('scaleHint').textContent=`Scale calibrated · 100 px ≈ ${lengthText(state.image.metersPerPixel*100)}`; };
+  $('saveTokenBtn').onclick=()=>initMap($('tokenInput').value.trim()); $('skipTokenBtn').onclick=()=>switchMode('image'); $('changeTokenBtn').onclick=()=>{$('tokenInput').value=localStorage.getItem('plotline.mapboxToken')||'';$('tokenGate').style.display='grid';};
+  $('menuBtn').onclick=()=>$('sidebar').classList.toggle('open');
+  $('resetBtn').onclick=()=>{ if(!confirm('Reset the locally saved Plotline project? Export first if you want a backup.')) return; ['plotline.unit','plotline.mapObjects','plotline.mapGeoJSON','plotline.imageScale','plotline.imageObjects'].forEach(k=>localStorage.removeItem(k)); location.reload(); };
+
+  const token=localStorage.getItem('plotline.mapboxToken'); if(token){ $('tokenInput').value=token; initMap(token); } else { $('tokenGate').style.display='grid'; }
+  updateObjectList();
+})();
+</script>
+</body>
+</html>
