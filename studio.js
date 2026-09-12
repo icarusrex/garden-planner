@@ -5,6 +5,7 @@
   const workspace=document.querySelector('.workspace');
   let editingCorners=false;
   let view='plan', history=[], cursor=-1, restoring=false, queued=false, panMode=false, pendingPlant=null;
+  let irrigationVisible=localStorage.getItem('plotline.irrigationVisible')!=='false';
   let camera={yaw:-.55,pitch:.72,zoom:1};
   const blank='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900"><rect width="1200" height="900" fill="#e9eee4"/></svg>');
   const plants=[
@@ -119,6 +120,10 @@
     });
   }
   $('plantCategory').onchange=renderPlantPalette;renderPlantPalette();
+  const accessories=[['compost','Compost bin'],['waterButt','Water butt'],['shed','Tool shed'],['greenhouse','Greenhouse'],['coldFrame','Cold frame'],['bench','Bench']];
+  $('plantPalette').closest('.section').insertAdjacentHTML('afterend','<section class="section"><h3>04 / Garden things</h3><div class="garden-things" id="gardenThings"></div></section><section class="section layer-panel"><h3>Layers</h3><label><input id="irrigationLayer" type="checkbox"/> <span><strong>Irrigation</strong><small>Show pipes, drip lines, and sprinklers</small></span></label></section>');
+  accessories.forEach(([type,name])=>{const b=document.createElement('button');b.innerHTML=`<span class="garden-thing-icon ${type}"></span><span>${name}</span>`;b.onclick=()=>{if(view!=='plan')setView('plan');$('accessoryType').value=type;P.chooseTool('accessory');P.setStatus(`Click to place ${name.toLowerCase()}`);};$('gardenThings').appendChild(b);});
+  $('irrigationLayer').checked=irrigationVisible;$('irrigationLayer').onchange=e=>{irrigationVisible=e.target.checked;localStorage.setItem('plotline.irrigationVisible',irrigationVisible);refresh();P.setStatus(irrigationVisible?'Irrigation layer shown':'Irrigation layer hidden');};
   function setView(next){
     if(next==='three'&&!state.image.metersPerPixel&&state.image.src){P.setStatus('Calibrate your reference image before opening a measured 3D view');return;}
     if(next!=='reference'&&state.mode==='satellite'){
@@ -148,7 +153,7 @@
     const pt=p=>{const v=project(p);return{x:(v.x-minx)*40+120,y:(v.y-miny)*40+120};};
     state.image={src:blank,width:(maxx-minx)*40+240,height:(maxy-miny)*40+240,metersPerPixel:.025,objects:features.map(f=>{
       const m=state.satelliteObjects[f.id]||{},o={...m,id:P.uid(),kind:m.kind||'bed',name:m.name||'Garden object'};
-      if(f.geometry.type==='Point')return{...o,kind:'tree',point:pt(f.geometry.coordinates)};
+      if(f.geometry.type==='Point')return{...o,kind:m.kind||'tree',point:pt(f.geometry.coordinates)};
       const points=(f.geometry.type==='Polygon'?f.geometry.coordinates[0].slice(0,-1):f.geometry.coordinates).map(pt);
       if(o.kind==='pergola')return{...o,center:{x:points.reduce((s,p)=>s+p.x,0)/points.length,y:points.reduce((s,p)=>s+p.y,0)/points.length}};
       return{...o,points};
@@ -169,7 +174,7 @@
     if(state.image.objects.length&&!confirm('Replace this design with a sample? You can undo this change.'))return;
     resetGarden(20,15);
     const point=(x,y)=>({x:120+x*40,y:120+y*40});
-    state.image.objects.push({id:P.uid(),kind:'path',name:'Garden walk',widthM:1.2,points:[point(10,15),point(10,8),point(15,8),point(15,3)]},{id:P.uid(),kind:'path',name:'Grape row',species:'Grape row',rowPlant:true,widthM:.8,heightM:1.8,points:[point(8,2),point(12,2)]},{id:P.uid(),kind:'bed',name:'Kitchen garden',points:[point(1,1),point(7,1),point(7,4),point(1,4)]},{id:P.uid(),kind:'bed',name:'Flowers & herbs',points:[point(1,11),point(7,11),point(7,14),point(1,14)]},{id:P.uid(),kind:'pergola',name:'A shady corner',widthM:4,depthM:3,heightM:2.5,center:point(15,3),rotationDeg:0});
+    state.image.objects.push({id:P.uid(),kind:'path',name:'Garden walk',widthM:1.2,points:[point(10,15),point(10,8),point(15,8),point(15,3)]},{id:P.uid(),kind:'path',name:'Grape row',species:'Grape row',rowPlant:true,widthM:.8,heightM:1.8,points:[point(8,2),point(12,2)]},{id:P.uid(),kind:'irrigation',name:'Supply line',irrigationType:'supply',points:[point(8,1),point(8,14)]},{id:P.uid(),kind:'irrigation',name:'Kitchen garden drip line',irrigationType:'drip',points:[point(1.5,3.5),point(6.5,3.5)]},{id:P.uid(),kind:'accessory',name:'Compost bin',accessoryType:'compost',widthM:1.2,depthM:1.2,heightM:1.2,point:point(8.8,13.2)},{id:P.uid(),kind:'bed',name:'Kitchen garden',points:[point(1,1),point(7,1),point(7,4),point(1,4)]},{id:P.uid(),kind:'bed',name:'Flowers & herbs',points:[point(1,11),point(7,11),point(7,14),point(1,14)]},{id:P.uid(),kind:'pergola',name:'A shady corner',widthM:4,depthM:3,heightM:2.5,center:point(15,3),rotationDeg:0});
     [['Olive',3,7],['Grapefruit',17,11],['Avocado',13,12],['Cypress',18,6],['Strawberries',3,12],['Tomatoes',4.5,12],['Rosemary',6,12],['Hydrangea',2,2.5],['Lime',5.5,2.5]].forEach(([name,x,y])=>{const p=plants.find(p=>p.name===name);state.image.objects.push({id:P.uid(),kind:'tree',name:p.name,species:p.name,canopyM:p.diameter,heightM:p.height,point:point(x,y)});});
     refresh();P.setStatus('Sample garden · 20 × 15 meters · try dragging a tree or switching to 3D');
   };
@@ -180,9 +185,9 @@
   $('undoBtn').onclick=()=>undo(-1);$('redoBtn').onclick=()=>undo(1);
   $('finishBtn').onclick=()=>{
     const kind=state.tool,points=state.image.draft;
-    if(!['property','bed','path'].includes(kind)||points.length<(kind==='path'?2:3))return;
-    if(kind!=='path'&&!validOutline(points)){P.setStatus('The outline crosses itself or has no area. Undo the last point and follow the edge in order.');return;}
-    const row=kind==='path'&&pendingPlant?.form==='vineRow',id=P.uid();state.image.objects.push({id,kind,name:row?pendingPlant.name:kind==='bed'?'Planting bed':kind==='path'?'Path':'Garden boundary',species:row?pendingPlant.name:undefined,rowPlant:row||undefined,heightM:row?pendingPlant.height:undefined,points:points.map(p=>({...p})),widthM:kind==='path'?Number($('pathWidth').value)*(state.unit==='imperial'?.3048:1):undefined});pendingPlant=null;P.clearTool();state.selectedId=id;editingCorners=true;refresh();P.setStatus(row?'Grape row saved · drag its points to adjust the line':'Outline saved · drag its corners to adjust the shape');
+    const line=['path','irrigation'].includes(kind);if(!['property','bed','path','irrigation'].includes(kind)||points.length<(line?2:3))return;
+    if(!line&&!validOutline(points)){P.setStatus('The outline crosses itself or has no area. Undo the last point and follow the edge in order.');return;}
+    const row=kind==='path'&&pendingPlant?.form==='vineRow',irrigation=kind==='irrigation',id=P.uid();state.image.objects.push({id,kind,name:row?pendingPlant.name:irrigation?({drip:'Drip line',supply:'Supply line',sprinkler:'Sprinkler line'}[$('irrigationType').value]):kind==='bed'?'Planting bed':kind==='path'?'Path':'Garden boundary',species:row?pendingPlant.name:undefined,rowPlant:row||undefined,irrigationType:irrigation?$('irrigationType').value:undefined,heightM:row?pendingPlant.height:undefined,points:points.map(p=>({...p})),widthM:kind==='path'?Number($('pathWidth').value)*(state.unit==='imperial'?.3048:1):undefined});pendingPlant=null;P.clearTool();state.selectedId=id;editingCorners=true;refresh();P.setStatus(row?'Grape row saved · drag its points to adjust the line':irrigation?'Irrigation route saved on its own layer':'Outline saved · drag its corners to adjust the shape');
   };
   function validOutline(points){
     if(points.length<3||points.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y))||P.imagePolygonArea(points)<1)return false;
@@ -196,7 +201,7 @@
   $('duplicateBtn').onclick=()=>{const o=state.image.objects.find(o=>o.id===state.selectedId);if(!o||state.mode!=='image')return;const copy=structuredClone(o);copy.id=P.uid();copy.name+=' copy';P.applyDrag(copy,P.objectOrigin(copy),1/state.image.metersPerPixel,1/state.image.metersPerPixel);state.image.objects.push(copy);state.selectedId=copy.id;refresh();};
   $('resetBtn').onclick=()=>{if(!confirm('Clear this design? You can undo this change.'))return;state.image.objects=[];state.selectedId=null;refresh();};
   const applyOriginal=$('applySelected').onclick;
-  $('applySelected').onclick=()=>{const o=P.selectedObject();if(!o)return;const fields=o.kind==='pergola'?['selectedPergolaWidth','selectedPergolaDepth']:o.kind==='tree'?['selectedTreeCanopy']:o.kind==='path'?['selectedPathWidth']:[];if(fields.some(id=>!Number.isFinite(+$(id).value)||+$(id).value<=0)){P.setStatus('Dimensions must be greater than zero');return;}applyOriginal();};
+  $('applySelected').onclick=()=>{const o=P.selectedObject();if(!o)return;const fields=o.kind==='pergola'?['selectedPergolaWidth','selectedPergolaDepth']:o.kind==='tree'?['selectedTreeCanopy']:o.kind==='path'?['selectedPathWidth']:o.kind==='accessory'?['selectedAccessoryWidth','selectedAccessoryDepth']:[];if(fields.some(id=>!Number.isFinite(+$(id).value)||+$(id).value<=0)){P.setStatus('Dimensions must be greater than zero');return;}applyOriginal();};
   $('sidebar').addEventListener('click',e=>{if(e.target.closest('.tool')){pendingPlant=null;panMode=false;if(view==='three')setView('plan');}},true);
   $('sidebar').addEventListener('click',e=>{if(e.target.closest('.tool,.plant-palette button'))$('sidebar').classList.remove('open');});
   $('objectHeight').onchange=()=>{const o=state.image.objects.find(o=>o.id===state.selectedId),h=+$('objectHeight').value;if(o&&Number.isFinite(h)&&h>0&&h<=40){o.heightM=h;refresh();}};
@@ -230,9 +235,9 @@
     $('imageEmpty').style.display=state.image.src?'none':'grid';
     $('scaleHint').textContent=state.image.metersPerPixel?`Scale set · 100 image pixels = ${P.lengthText(state.image.metersPerPixel*100)}`:'Scale not set · mark two points with a known distance.';
     svg.querySelectorAll('.studio-art,.studio-defs,.corner-controls').forEach(n=>n.remove());
-    const drawing=state.mode==='image'&&['property','bed','path'].includes(state.tool);
-    const grapeLine=state.tool==='path'&&pendingPlant?.form==='vineRow';$('outlineBar').hidden=!drawing;$('outlineProgress').textContent=grapeLine?`${state.image.draft.length} points · click along the grape row`:`${state.image.draft.length} points · click around the edge`;$('finishOutline').textContent=grapeLine?'Finish grape row':'Finish outline';
-    $('finishOutline').disabled=state.image.draft.length<(state.tool==='path'?2:3);$('removeCorner').disabled=!state.image.draft.length;
+    const drawing=state.mode==='image'&&['property','bed','path','irrigation'].includes(state.tool);
+    const grapeLine=state.tool==='path'&&pendingPlant?.form==='vineRow',irrigationLine=state.tool==='irrigation';$('outlineBar').hidden=!drawing;$('outlineProgress').textContent=grapeLine?`${state.image.draft.length} points · click along the grape row`:irrigationLine?`${state.image.draft.length} points · click along the irrigation route`:`${state.image.draft.length} points · click around the edge`;$('finishOutline').textContent=grapeLine?'Finish grape row':irrigationLine?'Finish irrigation':'Finish outline';
+    $('finishOutline').disabled=state.image.draft.length<(['path','irrigation'].includes(state.tool)?2:3);$('removeCorner').disabled=!state.image.draft.length;
     document.body.classList.toggle('drawing',!!state.tool);document.body.classList.toggle('panning',!!pan);
     $('panBtn').classList.toggle('active',(panMode||spaceHeld)&&!state.tool);$('selectBtn').classList.toggle('active',!panMode&&!spaceHeld&&!state.tool);
     if(view!=='reference'){
@@ -245,6 +250,7 @@
       const objects=[...state.image.objects].sort((a,b)=>(a.kind==='property'?-1:0)-(b.kind==='property'?-1:0));
       objects.forEach(o=>{
         const shape=[...svg.querySelectorAll('.svg-object')].find(n=>n.getAttribute('data-id')===o.id);if(!shape)return;
+        if(o.kind==='irrigation'&&!irrigationVisible){shape.style.display='none';return;}
         if(o.kind==='property'){
           shape.setAttribute('fill','#dce6c9');shape.setAttribute('stroke','#90a578');shape.setAttribute('stroke-width','1.5');svg.insertBefore(shape,ground.nextSibling);
           const dims=el('g',{class:'studio-art','pointer-events':'none'},svg);
@@ -257,6 +263,19 @@
           for(let j=1;j<o.points.length;j++){const a=o.points[j-1],b=o.points[j],len=Math.hypot(b.x-a.x,b.y-a.y);if(!len)continue;const nx=-(b.y-a.y)/len,ny=(b.x-a.x)/len;[-1,1].forEach(side=>el('line',{x1:a.x+nx*rowWidth*.32,y1:a.y+ny*rowWidth*.32,x2:b.x+nx*rowWidth*.32,y2:b.y+ny*rowWidth*.32,stroke:'#80694a','stroke-width':Math.max(2,rowWidth*.08)},art));const count=Math.max(2,Math.ceil(len*scale/.8));for(let i=0;i<=count;i++){const t=i/count,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;if(i%2===0)el('line',{x1:x+nx*rowWidth*.48,y1:y+ny*rowWidth*.48,x2:x-nx*rowWidth*.48,y2:y-ny*rowWidth*.48,stroke:'#80694a','stroke-width':Math.max(2,rowWidth*.06)},art);el('circle',{cx:x,cy:y,r:rowWidth*.34,fill:i%2?sp.color:sp.light,opacity:.9},art);if(i%3===1)el('circle',{cx:x+nx*rowWidth*.18,cy:y+ny*rowWidth*.18,r:rowWidth*.08,fill:sp.fruit},art);}}
           shape.after(art);
         }else if(o.kind==='path'){shape.setAttribute('stroke','#d2c6a4');shape.removeAttribute('vector-effect');}
+        if(o.kind==='irrigation'){
+          const type=o.irrigationType||'drip',color=type==='supply'?'#2878a6':type==='sprinkler'?'#51a6cb':'#318db5';shape.setAttribute('stroke',color);shape.setAttribute('stroke-width',type==='supply'?4.5:3);shape.setAttribute('stroke-dasharray',type==='drip'?'2 9':'none');shape.setAttribute('opacity','.78');shape.style.filter='drop-shadow(0 1px 1px #174e6b35)';shape.parentNode.appendChild(shape);
+          const art=el('g',{class:'studio-art','data-art-for':o.id,'pointer-events':'none'});for(let j=1;j<o.points.length;j++){const a=o.points[j-1],b=o.points[j],len=Math.hypot(b.x-a.x,b.y-a.y),count=Math.max(1,Math.floor(len*(state.image.metersPerPixel||.025)/(type==='drip'?.5:2)));for(let i=0;i<=count;i++){const t=i/count,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;if(type==='sprinkler'){el('circle',{cx:x,cy:y,r:Math.max(5,1/(state.image.metersPerPixel||.025))*.25,fill:'none',stroke:'#58acd0','stroke-width':1,'stroke-dasharray':'3 4',opacity:.55},art);el('circle',{cx:x,cy:y,r:3,fill:'#2878a6'},art);}else if(type==='drip')el('circle',{cx:x,cy:y,r:2.2,fill:'#1d6f99'},art);}}shape.after(art);
+        }
+        if(o.kind==='accessory'){
+          const type=o.accessoryType||'compost',colors={compost:['#6d7657','#46523f'],waterButt:['#547986','#355d6c'],shed:['#987657','#674f3c'],greenhouse:['#b9d6c7','#6d9b87'],coldFrame:['#b9d6c7','#6d9b87'],bench:['#a47c50','#705338']}[type];shape.setAttribute('fill',colors[0]);shape.setAttribute('stroke',colors[1]);
+          const s=state.image.metersPerPixel||.025,w=o.widthM/s,h=o.depthM/s,x=o.point.x,y=o.point.y,art=el('g',{class:'studio-art','data-art-for':o.id,'pointer-events':'none'});
+          if(type==='compost')for(let i=-2;i<=2;i++)el('line',{x1:x-w*.42,x2:x+w*.42,y1:y+i*h*.15,y2:y+i*h*.15,stroke:'#46523f','stroke-width':Math.max(1,w*.025)},art);
+          if(type==='waterButt'){el('ellipse',{cx:x,cy:y-h*.35,rx:w*.36,ry:h*.1,fill:'#6f97a0'},art);el('circle',{cx:x+w*.25,cy:y+h*.2,r:w*.05,fill:'#d7b260'},art);}
+          if(['greenhouse','coldFrame'].includes(type)){el('line',{x1:x-w*.45,y1:y,x2:x+w*.45,y2:y,stroke:'#6d9b87','stroke-width':2},art);el('line',{x1:x,y1:y-h*.45,x2:x,y2:y+h*.45,stroke:'#6d9b87','stroke-width':2},art);}
+          if(type==='bench'){for(const yy of [-.22,0,.22])el('line',{x1:x-w*.42,x2:x+w*.42,y1:y+yy*h,y2:y+yy*h,stroke:'#705338','stroke-width':Math.max(2,h*.12)},art);}
+          shape.after(art);
+        }
         if(o.kind==='pergola'){
           shape.setAttribute('fill','#e2d6b9');shape.setAttribute('stroke','#b09a71');
           const s=state.image.metersPerPixel||.025,w=o.widthM/s,h=o.depthM/s;
@@ -306,7 +325,7 @@
         }
       });
     }else {const base=svg.querySelector('image');if(base)base.style.opacity='1';}
-    svg.querySelectorAll('[data-label-for]').forEach(label=>{const o=state.image.objects.find(o=>o.id===label.getAttribute('data-label-for'));if(!o)return;label.style.display=view!=='reference'&&o.id!==state.selectedId&&['property','tree','path'].includes(o.kind)?'none':'';label.textContent=o.species&&o.name===o.species?o.name:o.name;});
+    svg.querySelectorAll('[data-label-for]').forEach(label=>{const o=state.image.objects.find(o=>o.id===label.getAttribute('data-label-for'));if(!o)return;label.style.display=o.kind==='irrigation'&&!irrigationVisible?'none':view!=='reference'&&o.id!==state.selectedId&&['property','tree','path','irrigation'].includes(o.kind)?'none':'';label.textContent=o.species&&o.name===o.species?o.name:o.name;});
     const props=state.image.objects.filter(o=>o.kind==='property'),scale=state.image.metersPerPixel;
     $('gardenSummary').textContent=`${props.length&&scale?P.areaText(props.reduce((a,o)=>a+P.imagePolygonArea(o.points)*scale*scale,0))+' garden · ':''}${state.image.objects.filter(o=>o.kind==='tree'||o.rowPlant).length} plantings · ${view==='three'?'3D preview':'Measured design'}`;
     const selected=state.image.objects.find(o=>o.id===state.selectedId);if(selected)$('objectHeight').value=selected.heightM||species(selected).height;
@@ -322,12 +341,12 @@
           e.stopPropagation();e.preventDefault();handle.setPointerCapture(e.pointerId);const old={...p};
           const shape=[...svg.querySelectorAll('.svg-object')].find(n=>n.getAttribute('data-id')===selected.id);
           const move=ev=>{const q=point(ev);p.x=q.x;p.y=q.y;handle.setAttribute('cx',p.x);handle.setAttribute('cy',p.y);shape?.setAttribute('points',selected.points.map(p=>`${p.x},${p.y}`).join(' '));};
-          const finish=ev=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',finish);handle.removeEventListener('pointercancel',cancel);if(selected.kind!=='path'&&!validOutline(selected.points)){Object.assign(p,old);P.setStatus('That corner would cross another edge. Move cancelled.');}refresh();};
+          const finish=ev=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',finish);handle.removeEventListener('pointercancel',cancel);if(!['path','irrigation'].includes(selected.kind)&&!validOutline(selected.points)){Object.assign(p,old);P.setStatus('That corner would cross another edge. Move cancelled.');}refresh();};
           const cancel=()=>{Object.assign(p,old);finish();};
           handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',finish);handle.addEventListener('pointercancel',cancel);
         });
         handle.addEventListener('click',e=>e.stopPropagation());
-        if(selected.kind==='path'&&i===selected.points.length-1)return;
+        if(['path','irrigation'].includes(selected.kind)&&i===selected.points.length-1)return;
         const q=selected.points[(i+1)%selected.points.length],x=(p.x+q.x)/2,y=(p.y+q.y)/2;
         const mid=el('g',{tabindex:0,role:'button','aria-label':`Add corner after ${i+1}`},group);
         el('circle',{cx:x,cy:y,r:r*.8,fill:'#eaf2e0',stroke:'#6f8b5b','stroke-width':1,'vector-effect':'non-scaling-stroke'},mid);
@@ -335,7 +354,7 @@
         mid.addEventListener('pointerdown',e=>e.stopPropagation());mid.addEventListener('click',e=>{e.stopPropagation();selected.points.splice(i+1,0,{x,y});refresh();});
       });
     }
-    $('heightField').style.display=selected&&(['tree','pergola','bed'].includes(selected.kind)||selected.rowPlant)?'grid':'none';
+    $('heightField').style.display=selected&&(['tree','pergola','bed','accessory'].includes(selected.kind)||selected.rowPlant)?'grid':'none';
     document.querySelector('.studio-legend').style.display=view==='three'?'none':'';
     const meterWidth=svg.getBoundingClientRect().width/(svg.viewBox.baseVal.width||1200)/(scale||.025)*5;
     $('scaleLabel').textContent=P.lengthText(5);$('scaleLabel').style.width=Math.min(180,Math.max(20,meterWidth))+'px';
@@ -356,11 +375,12 @@
     let layer=3;
     const faces=[];const face=(points,color,stroke)=>faces.push({points,color,stroke,layer,depth:points.reduce((sum,p)=>sum+project(p).depth,0)/points.length});
     function box(x,y,z,w,h,d,color){const a=[x-w/2,y,z-d/2],b=[x+w/2,y,z-d/2],c=[x+w/2,y,z+d/2],e=[x-w/2,y,z+d/2],up=p=>[p[0],p[1]+h,p[2]];face([a,b,up(b),up(a)],color);face([b,c,up(c),up(b)],shade(color,-18));face([c,e,up(e),up(c)],shade(color,-8));face([e,a,up(a),up(e)],shade(color,5));face([up(a),up(b),up(c),up(e)],shade(color,22));}
+    function cylinder(x,y,z,r,h,color,n=10){const bottom=[],top=[];for(let i=0;i<n;i++){const a=i*Math.PI*2/n;bottom.push([x+Math.cos(a)*r,y,z+Math.sin(a)*r]);top.push([x+Math.cos(a)*r,y+h,z+Math.sin(a)*r]);}for(let i=0;i<n;i++)face([bottom[i],bottom[(i+1)%n],top[(i+1)%n],top[i]],shade(color,Math.round(Math.cos(i*Math.PI*2/n)*14)));face(top,shade(color,20));}
     function canopy(x,y,z,rx,h,color,rz=rx){const n=10,rings=5;for(let j=0;j<rings;j++){const t1=-Math.PI/2+j*Math.PI/rings,t2=-Math.PI/2+(j+1)*Math.PI/rings;for(let i=0;i<n;i++){const a=i*2*Math.PI/n,b=(i+1)*2*Math.PI/n;const p=(t,a)=>[x+Math.cos(t)*Math.cos(a)*rx,y+Math.sin(t)*h,z+Math.cos(t)*Math.sin(a)*rz];face([p(t1,a),p(t1,b),p(t2,b),p(t2,a)],shade(color,Math.round(Math.cos(a)*12+j*5-9)));}}}
     function limb(a,b,w,color){const dx=b[0]-a[0],dz=b[2]-a[2],len=Math.hypot(dx,dz)||1,px=-dz/len*w/2,pz=dx/len*w/2,up=[0,w*.45,0];face([[a[0]+px,a[1],a[2]+pz],[a[0]-px,a[1],a[2]-pz],[b[0]-px,b[1],b[2]-pz],[b[0]+px,b[1],b[2]+pz]],color);face([[a[0]+px+up[0],a[1]+up[1],a[2]+pz+up[2]],[b[0]+px+up[0],b[1]+up[1],b[2]+pz+up[2]],[b[0]-px+up[0],b[1]+up[1],b[2]-pz+up[2]],[a[0]-px+up[0],a[1]+up[1],a[2]-pz+up[2]]],shade(color,16));}
     layer=0;face([[0,-.1,0],[gw,-.1,0],[gw,-.1,gd],[0,-.1,gd]],'#dfe7d4');
     state.image.objects.forEach(o=>{
-      layer=o.kind==='property'?1:['path','bed'].includes(o.kind)?2:3;
+      if(o.kind==='irrigation'&&!irrigationVisible)return;layer=o.kind==='property'?1:['path','bed','irrigation'].includes(o.kind)?2:3;
       if(o.kind==='property'||o.kind==='bed'){
         const h=o.kind==='property'?.01:(o.heightM||.18);const pts=o.points.map(p=>[p.x*s,h,p.y*s]);face(pts,o.kind==='property'?'#cadbb4':'#afa17b');
         if(o.kind==='bed')pts.forEach((p,i)=>{const q=pts[(i+1)%pts.length];face([p,q,[q[0],0,q[2]],[p[0],0,p[2]]],'#95825c');});
@@ -369,6 +389,8 @@
         for(let i=1;i<o.points.length;i++){const a=o.points[i-1],b=o.points[i],ax=a.x*s,az=a.y*s,bx=b.x*s,bz=b.y*s,len=Math.hypot(bx-ax,bz-az);if(!len)continue;limb([ax,h*.72,az],[bx,h*.72,bz],.09,'#806348');limb([ax,h*.42,az],[bx,h*.42,bz],.06,'#8b704f');const count=Math.max(2,Math.ceil(len/1.1));for(let j=0;j<=count;j++){const t=j/count,x=ax+(bx-ax)*t,z=az+(bz-az)*t;if(j%2===0)box(x,0,z,.09,h,.09,'#806348');canopy(x,h*.62,z,.38,h*.2,j%2?vine.color:vine.light,.25);if(j%3===1)for(let k=0;k<3;k++)canopy(x+(k-1)*.07,h*(.42-k*.025),z+.04,.035,.055,vine.fruit,.03);}}
       }else if(o.kind==='path'){
         for(let i=1;i<o.points.length;i++){const a=o.points[i-1],b=o.points[i],len=Math.hypot(b.x-a.x,b.y-a.y);if(!len)continue;const dx=-(b.y-a.y)/len*(o.widthM||1)/2,dz=(b.x-a.x)/len*(o.widthM||1)/2;face([[a.x*s+dx,.035,a.y*s+dz],[b.x*s+dx,.035,b.y*s+dz],[b.x*s-dx,.035,b.y*s-dz],[a.x*s-dx,.035,a.y*s-dz]],'#d8caaa');}
+      }else if(o.kind==='irrigation'){
+        const type=o.irrigationType||'drip',color=type==='supply'?'#2878a6':type==='sprinkler'?'#51a6cb':'#318db5',width=type==='supply'?.09:.045;for(let i=1;i<o.points.length;i++){const a=o.points[i-1],b=o.points[i],ax=a.x*s,az=a.y*s,bx=b.x*s,bz=b.y*s,len=Math.hypot(bx-ax,bz-az);if(!len)continue;const nx=-(bz-az)/len*width,nz=(bx-ax)/len*width;face([[ax+nx,.055,az+nz],[bx+nx,.055,bz+nz],[bx-nx,.055,bz-nz],[ax-nx,.055,az-nz]],color);const spacing=type==='drip'?.5:2,count=Math.max(1,Math.floor(len/spacing));for(let j=0;j<=count;j++){const t=j/count,x=ax+(bx-ax)*t,z=az+(bz-az)*t;if(type==='drip')cylinder(x,.055,z,.035,.035,'#1d6f99',7);if(type==='sprinkler'){cylinder(x,.055,z,.045,.12,'#2878a6',7);canopy(x,.18,z,.32,.025,'#8ccde0',.32);}}}
       }else if(o.kind==='tree'){
         const x=o.point.x*s,z=o.point.y*s,sp=species(o),h=o.heightM||sp.height,r=(o.canopyM||3)/2;
         if(sp.form==='avocado'){
@@ -406,6 +428,14 @@
           box(x,0,z,.14,h*.62,.14,'#92724e');canopy(x,h*.66,z,r,h*.35,sp.color);
           if(sp.fruit)for(let i=0;i<7;i++){const a=i*2.4;canopy(x+Math.cos(a)*r*.7,h*(.62+(i%3)*.08),z+Math.sin(a)*r*.7,.065,.065,sp.fruit,.055);}
         }
+      }else if(o.kind==='accessory'){
+        const x=o.point.x*s,z=o.point.y*s,w=o.widthM||1,d=o.depthM||1,h=o.heightM||1,type=o.accessoryType||'compost';
+        if(type==='compost'){box(x,0,z,w,h,d,'#667052');for(let i=1;i<5;i++)box(x,h*i/5,z+d/2+.012,w+.04,.035,.035,'#47523f');}
+        if(type==='waterButt'){cylinder(x,0,z,w*.46,h,'#547986',12);cylinder(x+w*.32,h*.2,z+d*.38,.045,.12,'#d0a954',7);}
+        if(type==='shed'){box(x,0,z,w,h*.82,d,'#927052');face([[x-w*.56,h*.82,z-d*.55],[x,h,z-d*.55],[x+w*.56,h*.82,z-d*.55]],'#6b5140');face([[x-w*.56,h*.82,z+d*.55],[x+w*.56,h*.82,z+d*.55],[x,h,z+d*.55]],'#795b45');}
+        if(type==='greenhouse'){box(x,0,z,w,h*.62,d,'#9fc8b6');face([[x-w/2,h*.62,z-d/2],[x,h,z-d/2],[x+w/2,h*.62,z-d/2]],'#c2ddd1');face([[x-w/2,h*.62,z+d/2],[x+w/2,h*.62,z+d/2],[x,h,z+d/2]],'#aed2c2');for(const dx of [-w/2,0,w/2])box(x+dx,0,z,.035,h,d+.03,'#6d9b87');}
+        if(type==='coldFrame'){box(x,0,z,w,h,d,'#9fc8b6');box(x,h,z,.035,.04,d,'#6d9b87');box(x,h,z,w,.04,.035,'#6d9b87');}
+        if(type==='bench'){box(x,h*.48,z,w,.12,d,'#9b744c');box(x,h*.62,z+d*.38,w,h*.32,.1,'#8d6847');for(const dx of [-w*.38,w*.38])for(const dz of [-d*.3,d*.3])box(x+dx,0,z+dz,.08,h*.5,.08,'#705338');}
       }else if(o.kind==='pergola'){
         const start=faces.length,x=o.center.x*s,z=o.center.y*s,w=o.widthM,d=o.depthM,h=o.heightM||2.5;
         box(x,.04,z,w,.08,d,'#cabc9b');for(const dx of [-w/2,w/2])for(const dz of [-d/2,d/2])box(x+dx,.1,z+dz,.14,h,.14,'#ac9066');

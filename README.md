@@ -19,6 +19,10 @@ The local studio now opens in a clean illustrated 2D plan. `studio.css` and
   than reusing the generic round-tree model.
 - A five-stage rotation reminder is built into the crop library: potato, dry
   bean, sweet potato, fava or chickpea, then potato again.
+- Irrigation is an independent visibility layer. Draw editable multi-point drip,
+  supply, or sprinkler routes and inspect the same network in 2D and 3D.
+- Measured garden objects include compost bins, water butts, tool sheds,
+  greenhouses, cold frames, and benches, each with a distinct plan and 3D form.
 - **3D garden** shows the same plan geometry in an orthographic scene. Drag to
   orbit and scroll to zoom. Edit objects in 2D. Heights can be set individually in
   meters; defaults are illustrative, not measurements inferred from imagery.

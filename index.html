@@ -55,6 +55,8 @@
     .swatch.bed { background: var(--bed); }
     .swatch.pergola { background: var(--pergola); }
     .swatch.path { background: var(--path); }
+    .swatch.irrigation { background: #2f8fc4; border-radius: 999px; height: 5px; }
+    .swatch.accessory { background: #788270; }
     .swatch.tree { background: var(--tree); border-radius: 50%; }
     .row { display: flex; gap: 8px; align-items: center; }
     .row > * { min-width: 0; }
@@ -136,6 +138,8 @@
           <button class="tool" data-tool="bed"><span class="swatch bed"></span><span>Planting bed</span></button>
           <button class="tool" data-tool="pergola"><span class="swatch pergola"></span><span>Pergola</span></button>
           <button class="tool" data-tool="path"><span class="swatch path"></span><span>Path</span></button>
+          <button class="tool" data-tool="irrigation"><span class="swatch irrigation"></span><span>Irrigation</span></button>
+          <button class="tool" data-tool="accessory"><span class="swatch accessory"></span><span>Garden object</span></button>
           <button class="tool" data-tool="tree"><span class="swatch tree"></span><span>Tree</span></button>
         </div>
         <div id="pergolaFields" style="display:none;margin-top:8px">
@@ -148,6 +152,12 @@
         </div>
         <div id="pathFields" style="display:none;margin-top:8px">
           <div class="field"><label>Path width</label><input id="pathWidth" type="number" min="0.5" step="0.5" value="3" /></div>
+        </div>
+        <div id="irrigationFields" style="display:none;margin-top:8px">
+          <div class="field"><label>Irrigation type</label><select id="irrigationType"><option value="drip">Drip line</option><option value="supply">Supply line</option><option value="sprinkler">Sprinkler line</option></select></div>
+        </div>
+        <div id="accessoryFields" style="display:none;margin-top:8px">
+          <div class="field"><label>Garden object</label><select id="accessoryType"><option value="compost">Compost bin</option><option value="waterButt">Water butt</option><option value="shed">Tool shed</option><option value="greenhouse">Greenhouse</option><option value="coldFrame">Cold frame</option><option value="bench">Bench</option></select></div>
         </div>
         <div id="treeFields" style="display:none;margin-top:8px">
           <div class="field"><label>Canopy diameter</label><input id="treeCanopy" type="number" min="1" step="0.5" value="12" /></div>
@@ -169,6 +179,13 @@
         </div>
         <div id="selectedPathFields" style="display:none">
           <div class="field"><label>Path width</label><input id="selectedPathWidth" type="number" min="0.5" step="0.5" /></div>
+        </div>
+        <div id="selectedIrrigationFields" style="display:none">
+          <div class="field"><label>Irrigation type</label><select id="selectedIrrigationType"><option value="drip">Drip line</option><option value="supply">Supply line</option><option value="sprinkler">Sprinkler line</option></select></div>
+        </div>
+        <div id="selectedAccessoryFields" style="display:none">
+          <div class="field"><label>Garden object</label><select id="selectedAccessoryType"><option value="compost">Compost bin</option><option value="waterButt">Water butt</option><option value="shed">Tool shed</option><option value="greenhouse">Greenhouse</option><option value="coldFrame">Cold frame</option><option value="bench">Bench</option></select></div>
+          <div class="row"><div class="field" style="flex:1"><label>Width</label><input id="selectedAccessoryWidth" type="number" min="0.2" step="0.1" /></div><div class="field" style="flex:1"><label>Depth</label><input id="selectedAccessoryDepth" type="number" min="0.2" step="0.1" /></div></div>
         </div>
         <div id="selectedTreeFields" style="display:none">
           <div class="field"><label>Canopy diameter</label><input id="selectedTreeCanopy" type="number" min="1" step="0.5" /></div>
@@ -253,7 +270,7 @@
     }
   };
 
-  const kindLabel = { property: 'Property', bed: 'Planting bed', pergola: 'Pergola', path: 'Path', tree: 'Tree' };
+  const kindLabel = { property: 'Property', bed: 'Planting bed', pergola: 'Pergola', path: 'Path', irrigation: 'Irrigation', accessory: 'Garden object', tree: 'Tree' };
   const unitSelect = $('unitSelect'); unitSelect.value = state.unit;
 
   function toMeters(value) { return state.unit === 'imperial' ? Number(value) * 0.3048 : Number(value); }
@@ -267,7 +284,7 @@
   function clearTool() {
     state.tool = null; state.pendingMapClick = null; state.image.draft = []; state.image.calibration = [];
     document.querySelectorAll('.tool').forEach(b => b.classList.remove('active'));
-    $('pergolaFields').style.display = 'none'; $('pathFields').style.display = 'none'; $('treeFields').style.display = 'none';
+    $('pergolaFields').style.display = 'none'; $('pathFields').style.display = 'none'; $('irrigationFields').style.display = 'none'; $('accessoryFields').style.display = 'none'; $('treeFields').style.display = 'none';
     $('toolHint').textContent = 'Choose an object, then draw it on the plan.';
     if (state.mode === 'satellite' && state.draw) { try { state.draw.changeMode('simple_select'); } catch {} }
     renderImage();
@@ -279,6 +296,8 @@
     document.querySelector(`.tool[data-tool="${kind}"]`)?.classList.add('active');
     $('pergolaFields').style.display = kind === 'pergola' ? 'block' : 'none';
     $('pathFields').style.display = kind === 'path' ? 'block' : 'none';
+    $('irrigationFields').style.display = kind === 'irrigation' ? 'block' : 'none';
+    $('accessoryFields').style.display = kind === 'accessory' ? 'block' : 'none';
     $('treeFields').style.display = kind === 'tree' ? 'block' : 'none';
     if (state.mode === 'satellite') startMapTool(kind); else startImageTool(kind);
   }
@@ -310,7 +329,7 @@
       { id:'gl-draw-polygon-fill-active', type:'fill', filter:['all',['==','active','true'],['==','$type','Polygon']], paint:{'fill-color':'#2f6b4f','fill-opacity':0.18} },
       { id:'gl-draw-polygon-stroke-inactive', type:'line', filter:['all',['==','active','false'],['==','$type','Polygon']], paint:{'line-color':['match',['get','user_kind'],'property','#5d6f85','bed','#4e8c59','pergola','#a87543','#4e8c59'],'line-width':2.5} },
       { id:'gl-draw-polygon-stroke-active', type:'line', filter:['all',['==','active','true'],['==','$type','Polygon']], paint:{'line-color':'#173f2d','line-dasharray':[0.2,2],'line-width':2.5} },
-      { id:'gl-draw-line-inactive', type:'line', filter:['all',['==','active','false'],['==','$type','LineString']], paint:{'line-color':'#b2a893','line-width':['coalesce',['get','user_visualWidth'],6]} },
+      { id:'gl-draw-line-inactive', type:'line', filter:['all',['==','active','false'],['==','$type','LineString']], paint:{'line-color':['match',['get','user_kind'],'irrigation','#2f8fc4','#b2a893'],'line-width':['coalesce',['get','user_visualWidth'],6]} },
       { id:'gl-draw-line-active', type:'line', filter:['all',['==','active','true'],['==','$type','LineString']], paint:{'line-color':'#6d6557','line-dasharray':[0.2,2],'line-width':6} },
       { id:'gl-draw-point-inactive', type:'circle', filter:['all',['==','active','false'],['==','$type','Point']], paint:{'circle-radius':9,'circle-color':'#2d6940','circle-stroke-color':'#fff','circle-stroke-width':2} },
       { id:'gl-draw-point-active', type:'circle', filter:['all',['==','active','true'],['==','$type','Point']], paint:{'circle-radius':10,'circle-color':'#1f4c31','circle-stroke-color':'#fff','circle-stroke-width':3} },
@@ -323,10 +342,12 @@
     if (!state.draw) { setStatus('Add your Mapbox token first, or switch to image mode'); return; }
     if (kind === 'property' || kind === 'bed') {
       state.draw.changeMode('draw_polygon'); setStatus(`Draw the ${kindLabel[kind].toLowerCase()} · click vertices, double-click to finish`);
-    } else if (kind === 'path') {
-      state.draw.changeMode('draw_line_string'); setStatus('Draw a path centerline · click points, double-click to finish');
+    } else if (kind === 'path' || kind === 'irrigation') {
+      state.draw.changeMode('draw_line_string'); setStatus(kind === 'irrigation' ? 'Draw the irrigation route · click points, double-click to finish' : 'Draw a path centerline · click points, double-click to finish');
     } else if (kind === 'pergola') {
       state.pendingMapClick = 'pergola'; setStatus('Click where the center of the pergola should go');
+    } else if (kind === 'accessory') {
+      state.pendingMapClick = 'accessory'; setStatus('Click to place the garden object');
     } else if (kind === 'tree') {
       state.pendingMapClick = 'tree'; setStatus('Click to place a tree');
     }
@@ -339,6 +360,9 @@
       const id = state.draw.add({ type:'Feature', properties:{ kind:'tree' }, geometry:{ type:'Point', coordinates:[e.lngLat.lng,e.lngLat.lat] } })[0];
       const species = $('treeSpecies').value.trim(), name = species || nextName('tree'); state.satelliteObjects[id] = { kind:'tree', name, canopyM: toMeters($('treeCanopy').value), species }; state.draw.setFeatureProperty(id,'kind','tree');
       finishMapObject(id, 'tree');
+    } else if (kind === 'accessory') {
+      const type=$('accessoryType').value,defaults={compost:[1.2,1.2,1.2],waterButt:[.8,.8,1.2],shed:[2.4,1.8,2.2],greenhouse:[3,2,2.2],coldFrame:[1.5,.8,.6],bench:[1.5,.6,.9]}[type],id=state.draw.add({type:'Feature',properties:{kind:'accessory'},geometry:{type:'Point',coordinates:[e.lngLat.lng,e.lngLat.lat]}})[0];
+      state.satelliteObjects[id]={kind:'accessory',name:{compost:'Compost bin',waterButt:'Water butt',shed:'Tool shed',greenhouse:'Greenhouse',coldFrame:'Cold frame',bench:'Bench'}[type],accessoryType:type,widthM:defaults[0],depthM:defaults[1],heightM:defaults[2]};state.draw.setFeatureProperty(id,'kind','accessory');finishMapObject(id,'accessory');
     } else if (kind === 'pergola') {
       const widthM = toMeters($('pergolaWidth').value), depthM = toMeters($('pergolaDepth').value);
       const rotationDeg = Number($('pergolaRotation').value) || 0;
@@ -356,11 +380,13 @@
     }
     if (e.type === 'draw.create' && e.features?.[0]) {
       const f = e.features[0]; let kind = state.tool;
-      if (!kind || kind === 'pergola' || kind === 'tree') kind = f.geometry.type === 'LineString' ? 'path' : 'bed';
+      if (!kind || kind === 'pergola' || kind === 'tree' || kind === 'accessory') kind = f.geometry.type === 'LineString' ? 'path' : 'bed';
       state.satelliteObjects[f.id] = state.satelliteObjects[f.id] || { kind, name: nextName(kind) };
       if (kind === 'path') state.satelliteObjects[f.id].widthM = toMeters($('pathWidth').value);
+      if (kind === 'irrigation') state.satelliteObjects[f.id].irrigationType = $('irrigationType').value;
       state.draw.setFeatureProperty(f.id, 'kind', kind);
       if (kind === 'path') state.draw.setFeatureProperty(f.id, 'visualWidth', 7);
+      if (kind === 'irrigation') state.draw.setFeatureProperty(f.id, 'visualWidth', 4);
       finishMapObject(f.id, kind);
     } else if (e.type === 'draw.delete') {
       (e.features || []).forEach(f => delete state.satelliteObjects[f.id]);
@@ -374,7 +400,7 @@
     persistMap(); state.selectedId = id;
     try { state.draw.changeMode('simple_select',{featureIds:[id]}); } catch {}
     state.pendingMapClick = null; state.tool = null; document.querySelectorAll('.tool').forEach(b => b.classList.remove('active'));
-    $('pergolaFields').style.display='none'; $('pathFields').style.display='none'; $('treeFields').style.display='none';
+    $('pergolaFields').style.display='none'; $('pathFields').style.display='none'; $('irrigationFields').style.display='none'; $('accessoryFields').style.display='none'; $('treeFields').style.display='none';
     refreshSelected(); updateObjectList(); updateSatelliteLabels(); setStatus(`${kindLabel[kind]} added · select it to edit or move`);
   }
 
@@ -423,7 +449,8 @@
       if (meta.kind === 'pergola' && meta.widthM && meta.depthM) return `${lengthText(meta.widthM)} × ${lengthText(meta.depthM)} · ${areaText(a)}${meta.rotationDeg ? ` · rotated ${meta.rotationDeg}°` : ''}`;
       return `${areaText(a)} · perimeter ${lengthText(p)}`;
     }
-    if (f.geometry.type === 'LineString') return `${lengthText(turf.length(f,{units:'kilometers'})*1000)} long${meta.widthM ? ` · ${lengthText(meta.widthM)} wide` : ''}`;
+    if (f.geometry.type === 'LineString') return `${meta.kind==='irrigation'?`${({drip:'Drip line',supply:'Supply line',sprinkler:'Sprinkler line'}[meta.irrigationType]||'Irrigation')} · `:''}${lengthText(turf.length(f,{units:'kilometers'})*1000)} long${meta.widthM ? ` · ${lengthText(meta.widthM)} wide` : ''}`;
+    if (meta.kind === 'accessory') return `${lengthText(meta.widthM)} × ${lengthText(meta.depthM)}`;
     return meta.canopyM ? `${meta.species ? `${meta.species} · ` : ''}canopy ${lengthText(meta.canopyM)}` : 'Placed tree';
   }
 
@@ -467,12 +494,12 @@
   }
   function imagePixelDistance(points) { let d=0; for(let i=1;i<points.length;i++) d += Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y); return d; }
   function objectOrigin(o) {
-    if (o.kind==='tree') return {point:{...o.point}};
+    if (o.kind==='tree' || o.kind==='accessory') return {point:{...o.point}};
     if (o.kind==='pergola') return {center:{...o.center}};
     return {points:o.points.map(p=>({...p}))};
   }
   function applyDrag(o, origin, dx, dy) {
-    if (o.kind==='tree') o.point={x:origin.point.x+dx,y:origin.point.y+dy};
+    if (o.kind==='tree' || o.kind==='accessory') o.point={x:origin.point.x+dx,y:origin.point.y+dy};
     else if (o.kind==='pergola') o.center={x:origin.center.x+dx,y:origin.center.y+dy};
     else o.points=origin.points.map(p=>({x:p.x+dx,y:p.y+dy}));
   }
@@ -484,14 +511,17 @@
     if (obj.kind === 'tree') return obj.canopyM ? `${obj.species ? `${obj.species} · ` : ''}canopy ${lengthText(obj.canopyM)}` : 'Placed tree';
     if (obj.kind === 'pergola') return `${lengthText(obj.widthM)} × ${lengthText(obj.depthM)} · ${areaText(obj.widthM*obj.depthM)}${obj.rotationDeg ? ` · rotated ${obj.rotationDeg}°` : ''}`;
     if (obj.kind === 'path') return `${lengthText(imagePixelDistance(obj.points)*s)} long · ${lengthText(obj.widthM || 0)} wide`;
+    if (obj.kind === 'irrigation') return `${({drip:'Drip line',supply:'Supply line',sprinkler:'Sprinkler line'}[obj.irrigationType]||'Irrigation')} · ${lengthText(imagePixelDistance(obj.points)*s)} long`;
+    if (obj.kind === 'accessory') return `${lengthText(obj.widthM)} × ${lengthText(obj.depthM)}`;
     return `${areaText(imagePolygonArea(obj.points)*s*s)} · perimeter ${lengthText(imagePixelDistance([...obj.points,obj.points[0]])*s)}`;
   }
 
   function startImageTool(kind) {
     if (!state.image.src) { setStatus('Upload an image first'); return; }
-    if ((kind === 'property' || kind === 'bed' || kind === 'path') && !state.image.metersPerPixel) setStatus('You can draw now, but calibrate the scale to get measurements');
+    if ((kind === 'property' || kind === 'bed' || kind === 'path' || kind === 'irrigation') && !state.image.metersPerPixel) setStatus('You can draw now, but calibrate the scale to get measurements');
     else if (kind === 'pergola') setStatus('Click where the center of the pergola should go');
     else if (kind === 'tree') setStatus('Click to place a tree');
+    else if (kind === 'accessory') setStatus('Click to place the garden object');
     else setStatus(`Draw the ${kindLabel[kind].toLowerCase()} · click points, double-click to finish`);
   }
 
@@ -523,7 +553,10 @@
       const widthM = toMeters($('pergolaWidth').value), depthM=toMeters($('pergolaDepth').value), rotationDeg=Number($('pergolaRotation').value)||0;
       addImageObject({id:uid(),kind:'pergola',name:nextName('pergola'),center:p,widthM,depthM,rotationDeg}); clearTool(); return;
     }
-    if (state.tool === 'property' || state.tool === 'bed' || state.tool === 'path') {
+    if (state.tool === 'accessory') {
+      const type=$('accessoryType').value,defaults={compost:[1.2,1.2,1.2],waterButt:[.8,.8,1.2],shed:[2.4,1.8,2.2],greenhouse:[3,2,2.2],coldFrame:[1.5,.8,.6],bench:[1.5,.6,.9]}[type],name={compost:'Compost bin',waterButt:'Water butt',shed:'Tool shed',greenhouse:'Greenhouse',coldFrame:'Cold frame',bench:'Bench'}[type];addImageObject({id:uid(),kind:'accessory',name,accessoryType:type,point:p,widthM:defaults[0],depthM:defaults[1],heightM:defaults[2]});clearTool();return;
+    }
+    if (state.tool === 'property' || state.tool === 'bed' || state.tool === 'path' || state.tool === 'irrigation') {
       const last=state.image.draft.at(-1);
       if(last && Math.hypot(p.x-last.x,p.y-last.y)<2) return;
       state.image.draft.push(p); renderImage();
@@ -531,7 +564,7 @@
   });
   svg.addEventListener('dblclick', (e) => {
     e.preventDefault();
-    if (!['property','bed','path'].includes(state.tool) || state.image.draft.length < (state.tool === 'path' ? 2 : 3)) return;
+    if (!['property','bed','path','irrigation'].includes(state.tool) || state.image.draft.length < (['path','irrigation'].includes(state.tool) ? 2 : 3)) return;
     document.getElementById('finishBtn').click();
   });
 
@@ -546,7 +579,7 @@
     state.image.objects.forEach(o => svg.appendChild(renderSvgObject(o)));
     state.image.objects.forEach(o => svg.appendChild(renderImageLabel(o)));
     if (state.image.draft.length) {
-      const shape=document.createElementNS(ns, state.tool==='path'?'polyline':'polygon'); shape.setAttribute('points',state.image.draft.map(p=>`${p.x},${p.y}`).join(' ')); shape.setAttribute('fill',state.tool==='path'?'none':'rgba(78,140,89,.18)'); shape.setAttribute('stroke','#2f6b4f'); shape.setAttribute('stroke-width','3'); shape.setAttribute('stroke-dasharray','8 6'); shape.setAttribute('vector-effect','non-scaling-stroke'); svg.appendChild(shape);
+      const line=['path','irrigation'].includes(state.tool),shape=document.createElementNS(ns,line?'polyline':'polygon'); shape.setAttribute('points',state.image.draft.map(p=>`${p.x},${p.y}`).join(' ')); shape.setAttribute('fill',line?'none':'rgba(78,140,89,.18)'); shape.setAttribute('stroke',state.tool==='irrigation'?'#2f8fc4':'#2f6b4f'); shape.setAttribute('stroke-width','3'); shape.setAttribute('stroke-dasharray','8 6'); shape.setAttribute('vector-effect','non-scaling-stroke'); svg.appendChild(shape);
       state.image.draft.forEach(p=>{ const c=document.createElementNS(ns,'circle'); c.setAttribute('cx',p.x); c.setAttribute('cy',p.y); c.setAttribute('r','5'); c.setAttribute('class','calibration-point'); svg.appendChild(c); });
     }
     state.image.calibration.forEach((p,i)=>{ const c=document.createElementNS(ns,'circle'); c.setAttribute('cx',p.x); c.setAttribute('cy',p.y); c.setAttribute('r','7'); c.setAttribute('class','calibration-point'); svg.appendChild(c); if(i===1){const l=document.createElementNS(ns,'line');l.setAttribute('x1',state.image.calibration[0].x);l.setAttribute('y1',state.image.calibration[0].y);l.setAttribute('x2',p.x);l.setAttribute('y2',p.y);l.setAttribute('stroke','#111');l.setAttribute('stroke-width','2');l.setAttribute('stroke-dasharray','8 5');l.setAttribute('vector-effect','non-scaling-stroke');svg.insertBefore(l,c);} });
@@ -564,7 +597,8 @@
       const s=state.image.metersPerPixel||1, h=o.depthM/s;
       return {x:o.center.x, y:o.center.y - h/2 - fs*0.6};
     }
-    if (o.kind==='path') {
+    if (o.kind==='accessory') return {x:o.point.x,y:o.point.y-(o.depthM/(state.image.metersPerPixel||1))/2-fs*.6};
+    if (o.kind==='path' || o.kind==='irrigation') {
       const mid=o.points[Math.floor((o.points.length-1)/2)] || o.points[0];
       return {x:mid.x, y:mid.y - fs*0.6};
     }
@@ -589,6 +623,10 @@
       if (o.rotationDeg) el.setAttribute('transform',`rotate(${o.rotationDeg} ${o.center.x} ${o.center.y})`);
     } else if (o.kind==='path') {
       el=document.createElementNS(ns,'polyline'); el.setAttribute('points',o.points.map(p=>`${p.x},${p.y}`).join(' ')); el.setAttribute('fill','none'); el.setAttribute('stroke','#b2a893'); const px=(o.widthM && state.image.metersPerPixel)?o.widthM/state.image.metersPerPixel:8; el.setAttribute('stroke-width',Math.max(5,px)); el.setAttribute('stroke-linecap','round'); el.setAttribute('stroke-linejoin','round');
+    } else if (o.kind==='irrigation') {
+      el=document.createElementNS(ns,'polyline');el.setAttribute('points',o.points.map(p=>`${p.x},${p.y}`).join(' '));el.setAttribute('fill','none');el.setAttribute('stroke','#2f8fc4');el.setAttribute('stroke-width',o.irrigationType==='supply'?7:4);el.setAttribute('stroke-linecap','round');el.setAttribute('stroke-linejoin','round');if(o.irrigationType==='drip')el.setAttribute('stroke-dasharray','2 8');
+    } else if (o.kind==='accessory') {
+      const s=state.image.metersPerPixel||1,w=o.widthM/s,h=o.depthM/s;el=document.createElementNS(ns,'rect');el.setAttribute('x',o.point.x-w/2);el.setAttribute('y',o.point.y-h/2);el.setAttribute('width',w);el.setAttribute('height',h);el.setAttribute('rx',o.accessoryType==='waterButt'?w/2:Math.min(w,h)*.08);el.setAttribute('fill','#788270');el.setAttribute('stroke','#4f5d4a');el.setAttribute('stroke-width','3');
     } else {
       el=document.createElementNS(ns,'polygon'); el.setAttribute('points',o.points.map(p=>`${p.x},${p.y}`).join(' ')); el.setAttribute('fill',o.kind==='property'?'rgba(93,111,133,.15)':'rgba(78,140,89,.22)'); el.setAttribute('stroke',o.kind==='property'?'#5d6f85':'#4e8c59'); el.setAttribute('stroke-width','3');
     }
@@ -659,7 +697,7 @@
   }
   function refreshSelected() {
     const o=selectedObject(); $('selectedSection').style.display=o?'block':'none';
-    ['selectedPergolaFields','selectedPathFields','selectedTreeFields'].forEach(id => $(id).style.display='none');
+    ['selectedPergolaFields','selectedPathFields','selectedIrrigationFields','selectedAccessoryFields','selectedTreeFields'].forEach(id => $(id).style.display='none');
     if(!o)return;
     $('selectedName').value=o.name||''; $('selectedMeasure').textContent=state.mode==='image'?imageMeasurement(o):mapMeasurement(o.id);
     if(o.kind==='pergola') {
@@ -670,6 +708,10 @@
     } else if(o.kind==='path') {
       $('selectedPathFields').style.display='block';
       $('selectedPathWidth').value=(fromMeters(o.widthM||0)).toFixed(1).replace(/\.0$/,'');
+    } else if(o.kind==='irrigation') {
+      $('selectedIrrigationFields').style.display='block';$('selectedIrrigationType').value=o.irrigationType||'drip';
+    } else if(o.kind==='accessory') {
+      $('selectedAccessoryFields').style.display='block';$('selectedAccessoryType').value=o.accessoryType||'compost';$('selectedAccessoryWidth').value=fromMeters(o.widthM||1).toFixed(1).replace(/\.0$/,'');$('selectedAccessoryDepth').value=fromMeters(o.depthM||1).toFixed(1).replace(/\.0$/,'');
     } else if(o.kind==='tree') {
       $('selectedTreeFields').style.display='block';
       $('selectedTreeCanopy').value=(fromMeters(o.canopyM||toMeters(12))).toFixed(1).replace(/\.0$/,'');
@@ -702,6 +744,8 @@
       o.name=newName;
       if(o.kind==='pergola') { o.widthM=toMeters($('selectedPergolaWidth').value); o.depthM=toMeters($('selectedPergolaDepth').value); o.rotationDeg=Number($('selectedPergolaRotation').value)||0; }
       if(o.kind==='path') o.widthM=toMeters($('selectedPathWidth').value);
+      if(o.kind==='irrigation') o.irrigationType=$('selectedIrrigationType').value;
+      if(o.kind==='accessory') {o.accessoryType=$('selectedAccessoryType').value;o.widthM=toMeters($('selectedAccessoryWidth').value);o.depthM=toMeters($('selectedAccessoryDepth').value);}
       if(o.kind==='tree') { o.canopyM=toMeters($('selectedTreeCanopy').value); o.species=$('selectedTreeSpecies').value.trim(); }
       persistImage(); renderImage();
     } else if(state.draw) {
@@ -716,6 +760,8 @@
         state.draw.add(feature); state.draw.setFeatureProperty(o.id,'kind','pergola');
       }
       if(o.kind==='path') meta.widthM=toMeters($('selectedPathWidth').value);
+      if(o.kind==='irrigation') meta.irrigationType=$('selectedIrrigationType').value;
+      if(o.kind==='accessory') {meta.accessoryType=$('selectedAccessoryType').value;meta.widthM=toMeters($('selectedAccessoryWidth').value);meta.depthM=toMeters($('selectedAccessoryDepth').value);}
       if(o.kind==='tree') { meta.canopyM=toMeters($('selectedTreeCanopy').value); meta.species=$('selectedTreeSpecies').value.trim(); }
       persistMap(); updateSatelliteLabels();
     }
