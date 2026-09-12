@@ -40,6 +40,17 @@
   ];
   const el=(tag,attrs={},parent)=>{const e=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));if(parent)parent.appendChild(e);return e;};
   function species(o){const name=(o.species||'').toLowerCase(),match=plants.map(p=>({p,score:[p.name,...(p.aliases||[])].reduce((best,key)=>name.includes(key.toLowerCase())?Math.max(best,key.length):best,0)})).filter(x=>x.score).sort((a,b)=>b.score-a.score)[0];return match?.p||{color:'#5f8052',light:'#809a69',dark:'#456744',height:3,name:'Tree',form:'round'};}
+  const pivot=o=>o.point||o.center||{x:o.points.reduce((v,p)=>v+p.x,0)/o.points.length,y:o.points.reduce((v,p)=>v+p.y,0)/o.points.length};
+  function turnPoint(p,c,angle){const a=angle*Math.PI/180,dx=p.x-c.x,dy=p.y-c.y;return{x:c.x+dx*Math.cos(a)-dy*Math.sin(a),y:c.y+dx*Math.sin(a)+dy*Math.cos(a)};}
+  function inside(p,poly){let yes=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)yes=!yes;}return yes;}
+  function bedPlants(o){
+    if(o.kind!=='bed'||!o.species)return[];
+    const s=state.image.metersPerPixel||.025,sp=species(o),c=pivot(o),a=o.rotationDeg||0,poly=o.points.map(p=>turnPoint(p,c,-a));
+    const xs=poly.map(p=>p.x),ys=poly.map(p=>p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+    const step=Math.max((o.spacingM||sp.diameter)/s,Math.sqrt((maxX-minX)*(maxY-minY)/220)),result=[];
+    for(let y=minY+step/2;y<maxY;y+=step)for(let x=minX+step/2;x<maxX;x+=step){const p={x,y};if(inside(p,poly))result.push({kind:'tree',species:o.species,point:turnPoint(p,c,a),canopyM:Math.min(sp.diameter,step*s*.85),heightM:sp.height,baseHeight:o.heightM||.18,rotationDeg:a,crop:true});}
+    return result;
+  }
   function plantIcon(p){
     if(p.form==='column')return `<svg viewBox="0 0 50 50" aria-hidden="true"><ellipse cx="25" cy="45" rx="13" ry="3" fill="#dfe5d3"/><path d="M25 4C15 15 16 35 25 44C34 35 35 15 25 4Z" fill="${p.dark}"/><path d="M25 8C21 18 21 34 25 40C29 32 29 18 25 8Z" fill="${p.light}" opacity=".65"/></svg>`;
     if(p.form==='avocado')return `<svg viewBox="0 0 50 50" aria-hidden="true"><ellipse cx="26" cy="44" rx="18" ry="3" fill="#dfe5d3"/><path d="M24 43V28M24 34l-7-7m7 4 9-9" stroke="#7a5940" stroke-width="3" stroke-linecap="round"/><ellipse cx="18" cy="21" rx="12" ry="15" fill="${p.dark}" transform="rotate(-18 18 21)"/><ellipse cx="31" cy="20" rx="13" ry="16" fill="${p.color}" transform="rotate(18 31 20)"/><ellipse cx="25" cy="13" rx="11" ry="10" fill="${p.light}"/><path d="M34 30c-4 0-5 6-1 8 5 0 6-7 1-8Z" fill="${p.fruit}"/></svg>`;
@@ -115,12 +126,24 @@
     const group=$('plantCategory').value,palette=$('plantPalette');palette.replaceChildren();
     plants.filter(p=>p.category===group).forEach(p=>{
       const row=p.form==='vineRow',measure=row?'row length':'mature spread',b=document.createElement('button');
-      b.title=`Place ${p.name}, ${p.diameter} m ${measure}`;b.innerHTML=`${plantIcon(p)}<span>${p.name}</span>`;
+      b.title=p.category!=='Trees'&&!row?`Draw a ${p.name.toLowerCase()} bed`:`Place ${p.name}, ${p.diameter} m ${measure}`;b.innerHTML=`${plantIcon(p)}<span>${p.name}</span>`;
       b.onclick=()=>{if(view!=='plan')setView('plan');pendingPlant=p;if(row){$('pathWidth').value=state.unit==='imperial'?(.8/.3048).toFixed(1):.8;P.chooseTool('path');P.setStatus('Click points along the grape row, then press Enter or Finish');return;}$('treeCanopy').value=state.unit==='imperial'?p.diameter/0.3048:p.diameter;$('treeSpecies').value=p.name;$('treeCanopy').closest('.field').querySelector('label').textContent='Mature canopy diameter';P.chooseTool('tree');P.setStatus(`Click to place ${p.name.toLowerCase()} · ${P.lengthText(p.diameter)} ${measure}`);};palette.appendChild(b);
     });
   }
   $('plantCategory').onchange=renderPlantPalette;renderPlantPalette();
-  const accessories=[['compost','Compost bin'],['waterButt','Water butt'],['shed','Tool shed'],['greenhouse','Greenhouse'],['coldFrame','Cold frame'],['bench','Bench']];
+  $('plantPalette').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const p=plants.find(p=>p.name===b.querySelector('span')?.textContent);if(p&&p.category!=='Trees'&&p.form!=='vineRow'){pendingPlant=p;P.chooseTool('bed');P.setStatus(`Draw the ${p.name.toLowerCase()} bed · click its corners, then Finish outline`);}});
+  $('plantPalette').closest('.section').querySelector('.hint').textContent='Draw crop and herb beds as polygons. Place trees individually and draw grapes along a row.';
+  $('selectedSection').insertAdjacentHTML('beforeend','<div class="field"><label for="objectRotation">Rotation (°)</label><input id="objectRotation" type="number" step="5" value="0"><button class="btn" id="quarterTurn">Rotate 90°</button></div><div id="cropBedFields"><div class="field"><label for="bedCrop">Bed crop</label><select id="bedCrop"><option value="">Unplanted bed</option></select></div><div class="field"><label for="bedSpacing">Plant spacing (meters)</label><input id="bedSpacing" type="number" min="0.1" max="5" step="0.05"></div><small>Large beds show a representative planting pattern.</small></div>');
+  plants.filter(p=>p.category!=='Trees'&&p.form!=='vineRow').forEach(p=>$('bedCrop').add(new Option(p.name,p.name)));
+  $('selectedPergolaRotation').closest('.field').hidden=true;
+  function rotateSelected(value){const o=P.selectedObject();if(!o||state.mode!=='image'||!Number.isFinite(value))return;const angle=((value%360)+360)%360;if(o.points){const c=pivot(o);o.points=o.points.map(p=>turnPoint(p,c,angle-(o.rotationDeg||0)));}o.rotationDeg=angle;refresh();}
+  $('objectRotation').onchange=e=>rotateSelected(+e.target.value);$('quarterTurn').onclick=()=>rotateSelected((P.selectedObject()?.rotationDeg||0)+90);
+  $('bedCrop').onchange=e=>{const o=P.selectedObject();if(o?.kind!=='bed')return;o.species=e.target.value;o.spacingM=species(o).diameter||.5;if(o.species)o.name=o.species+' bed';refresh();};
+  $('bedSpacing').onchange=e=>{const o=P.selectedObject(),v=+e.target.value;if(o?.kind==='bed'&&v>=.1&&v<=5){o.spacingM=v;refresh();}};
+  ['pathWidth','selectedPathWidth'].forEach(id=>{$(id).min='0.1';$(id).step='0.1';});
+  document.querySelector('[data-tool="path"]').addEventListener('click',()=>{$('pathWidth').value=state.unit==='imperial'?(0.5/.3048).toFixed(3):'0.5';});
+  ['accessoryType','selectedAccessoryType'].forEach(id=>{$(id).add(new Option('Pirate ship playground','playground'));[...$(id).options].find(o=>o.value==='greenhouse').textContent='Hoop greenhouse';});
+  const accessories=[['compost','Compost bin'],['waterButt','Water butt'],['shed','Tool shed'],['greenhouse','Hoop greenhouse'],['coldFrame','Cold frame'],['bench','Bench'],['playground','Pirate ship playground']];
   $('plantPalette').closest('.section').insertAdjacentHTML('afterend','<section class="section"><h3>04 / Garden things</h3><div class="garden-things" id="gardenThings"></div></section><section class="section layer-panel"><h3>Layers</h3><label><input id="irrigationLayer" type="checkbox"/> <span><strong>Irrigation</strong><small>Show pipes, drip lines, and sprinklers</small></span></label></section>');
   accessories.forEach(([type,name])=>{const b=document.createElement('button');b.innerHTML=`<span class="garden-thing-icon ${type}"></span><span>${name}</span>`;b.onclick=()=>{if(view!=='plan')setView('plan');$('accessoryType').value=type;P.chooseTool('accessory');P.setStatus(`Click to place ${name.toLowerCase()}`);};$('gardenThings').appendChild(b);});
   $('irrigationLayer').checked=irrigationVisible;$('irrigationLayer').onchange=e=>{irrigationVisible=e.target.checked;localStorage.setItem('plotline.irrigationVisible',irrigationVisible);refresh();P.setStatus(irrigationVisible?'Irrigation layer shown':'Irrigation layer hidden');};
@@ -175,7 +198,9 @@
     resetGarden(20,15);
     const point=(x,y)=>({x:120+x*40,y:120+y*40});
     state.image.objects.push({id:P.uid(),kind:'path',name:'Garden walk',widthM:1.2,points:[point(10,15),point(10,8),point(15,8),point(15,3)]},{id:P.uid(),kind:'path',name:'Grape row',species:'Grape row',rowPlant:true,widthM:.8,heightM:1.8,points:[point(8,2),point(12,2)]},{id:P.uid(),kind:'irrigation',name:'Supply line',irrigationType:'supply',points:[point(8,1),point(8,14)]},{id:P.uid(),kind:'irrigation',name:'Kitchen garden drip line',irrigationType:'drip',points:[point(1.5,3.5),point(6.5,3.5)]},{id:P.uid(),kind:'accessory',name:'Compost bin',accessoryType:'compost',widthM:1.2,depthM:1.2,heightM:1.2,point:point(8.8,13.2)},{id:P.uid(),kind:'bed',name:'Kitchen garden',points:[point(1,1),point(7,1),point(7,4),point(1,4)]},{id:P.uid(),kind:'bed',name:'Flowers & herbs',points:[point(1,11),point(7,11),point(7,14),point(1,14)]},{id:P.uid(),kind:'pergola',name:'A shady corner',widthM:4,depthM:3,heightM:2.5,center:point(15,3),rotationDeg:0});
-    [['Olive',3,7],['Grapefruit',17,11],['Avocado',13,12],['Cypress',18,6],['Strawberries',3,12],['Tomatoes',4.5,12],['Rosemary',6,12],['Hydrangea',2,2.5],['Lime',5.5,2.5]].forEach(([name,x,y])=>{const p=plants.find(p=>p.name===name);state.image.objects.push({id:P.uid(),kind:'tree',name:p.name,species:p.name,canopyM:p.diameter,heightM:p.height,point:point(x,y)});});
+    [['Olive',2,5.5],['Grapefruit',17,11],['Avocado',13,12],['Cypress',18,6],['Lime',18,3]].forEach(([name,x,y])=>{const p=plants.find(p=>p.name===name);state.image.objects.push({id:P.uid(),kind:'tree',name:p.name,species:p.name,canopyM:p.diameter,heightM:p.height,point:point(x,y)});});
+    state.image.objects.filter(o=>o.kind==='bed').forEach((o,i)=>{o.species=i?'Salads':'Potatoes';o.name=o.species+' bed';o.spacingM=species(o).diameter;});
+    state.image.objects.push({id:P.uid(),kind:'accessory',name:'Hoop greenhouse',accessoryType:'greenhouse',point:point(10,5),widthM:3,depthM:5,heightM:2.2,rotationDeg:90},{id:P.uid(),kind:'accessory',name:'Pirate ship playground',accessoryType:'playground',point:point(4,8.5),widthM:5,depthM:3,heightM:3.5});
     refresh();P.setStatus('Sample garden · 20 × 15 meters · try dragging a tree or switching to 3D');
   };
   $('referenceView').onclick=()=>setView('reference');$('planView').onclick=()=>setView('plan');$('threeView').onclick=()=>setView('three');
@@ -187,7 +212,9 @@
     const kind=state.tool,points=state.image.draft;
     const line=['path','irrigation'].includes(kind);if(!['property','bed','path','irrigation'].includes(kind)||points.length<(line?2:3))return;
     if(!line&&!validOutline(points)){P.setStatus('The outline crosses itself or has no area. Undo the last point and follow the edge in order.');return;}
-    const row=kind==='path'&&pendingPlant?.form==='vineRow',irrigation=kind==='irrigation',id=P.uid();state.image.objects.push({id,kind,name:row?pendingPlant.name:irrigation?({drip:'Drip line',supply:'Supply line',sprinkler:'Sprinkler line'}[$('irrigationType').value]):kind==='bed'?'Planting bed':kind==='path'?'Path':'Garden boundary',species:row?pendingPlant.name:undefined,rowPlant:row||undefined,irrigationType:irrigation?$('irrigationType').value:undefined,heightM:row?pendingPlant.height:undefined,points:points.map(p=>({...p})),widthM:kind==='path'?Number($('pathWidth').value)*(state.unit==='imperial'?.3048:1):undefined});pendingPlant=null;P.clearTool();state.selectedId=id;editingCorners=true;refresh();P.setStatus(row?'Grape row saved · drag its points to adjust the line':irrigation?'Irrigation route saved on its own layer':'Outline saved · drag its corners to adjust the shape');
+    const row=kind==='path'&&pendingPlant?.form==='vineRow',crop=kind==='bed'&&pendingPlant,irrigation=kind==='irrigation',id=P.uid(),width=Number($('pathWidth').value)*(state.unit==='imperial'?.3048:1);
+    if(kind==='path'&&(!Number.isFinite(width)||width<=0)){P.setStatus('Enter a path width greater than zero');return;}
+    state.image.objects.push({id,kind,name:crop?pendingPlant.name+' bed':row?pendingPlant.name:irrigation?({drip:'Drip line',supply:'Supply line',sprinkler:'Sprinkler line'}[$('irrigationType').value]):kind==='bed'?'Planting bed':kind==='path'?'Path':'Garden boundary',species:row||crop?pendingPlant.name:undefined,spacingM:crop?pendingPlant.diameter:undefined,rowPlant:row||undefined,irrigationType:irrigation?$('irrigationType').value:undefined,heightM:row?pendingPlant.height:undefined,points:points.map(p=>({...p})),widthM:kind==='path'?width:undefined});pendingPlant=null;P.clearTool();state.selectedId=id;editingCorners=true;refresh();P.setStatus(row?'Grape row saved · drag its points to adjust the line':irrigation?'Irrigation route saved on its own layer':'Outline saved · drag its corners to adjust the shape');
   };
   function validOutline(points){
     if(points.length<3||points.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y))||P.imagePolygonArea(points)<1)return false;
@@ -203,9 +230,9 @@
   const applyOriginal=$('applySelected').onclick;
   $('applySelected').onclick=()=>{const o=P.selectedObject();if(!o)return;const fields=o.kind==='pergola'?['selectedPergolaWidth','selectedPergolaDepth']:o.kind==='tree'?['selectedTreeCanopy']:o.kind==='path'?['selectedPathWidth']:o.kind==='accessory'?['selectedAccessoryWidth','selectedAccessoryDepth']:[];if(fields.some(id=>!Number.isFinite(+$(id).value)||+$(id).value<=0)){P.setStatus('Dimensions must be greater than zero');return;}applyOriginal();};
   $('sidebar').addEventListener('click',e=>{if(e.target.closest('.tool')){pendingPlant=null;panMode=false;if(view==='three')setView('plan');}},true);
-  $('sidebar').addEventListener('click',e=>{if(e.target.closest('.tool,.plant-palette button'))$('sidebar').classList.remove('open');});
+  $('sidebar').addEventListener('click',e=>{if(e.target.closest('.tool,.plant-palette button,.garden-things button'))$('sidebar').classList.remove('open');});
   $('objectHeight').onchange=()=>{const o=state.image.objects.find(o=>o.id===state.selectedId),h=+$('objectHeight').value;if(o&&Number.isFinite(h)&&h>0&&h<=40){o.heightM=h;refresh();}};
-  const unitOriginal=$('unitSelect').onchange;$('unitSelect').onchange=e=>{unitOriginal(e);refresh();};
+  const unitOriginal=$('unitSelect').onchange;$('unitSelect').onchange=e=>{const factor=state.unit===e.target.value?1:state.unit==='imperial'?.3048:1/.3048;['pathWidth','treeCanopy','pergolaWidth','pergolaDepth'].forEach(id=>{$(id).value=+(Number($(id).value)*factor).toFixed(3);});unitOriginal(e);refresh();};
   function zoomPlan(f,clientX,clientY){const v=svg.viewBox.baseVal,b=svg.getBoundingClientRect(),nx=clientX==null?.5:(clientX-b.left)/b.width,ny=clientY==null?.5:(clientY-b.top)/b.height,w=v.width/f,h=v.height/f;svg.setAttribute('viewBox',`${v.x+(v.width-w)*nx} ${v.y+(v.height-h)*ny} ${w} ${h}`);enhance();}
   $('zoomIn').onclick=()=>{if(view==='three'){camera.zoom=Math.min(5,camera.zoom*1.2);draw3d();}else zoomPlan(1.2);};$('zoomOut').onclick=()=>{if(view==='three'){camera.zoom=Math.max(.3,camera.zoom/1.2);draw3d();}else zoomPlan(1/1.2);};$('fitBtn').onclick=()=>{camera.zoom=1;svg.setAttribute('viewBox',`0 0 ${state.image.width} ${state.image.height}`);if(view==='three')draw3d();else enhance();};
   document.addEventListener('keydown',e=>{
@@ -227,7 +254,7 @@
   svg.addEventListener('click',e=>{if(suppressPanClick){e.preventDefault();e.stopImmediatePropagation();suppressPanClick=false;}},true);
   svg.addEventListener('pointerdown',e=>{suppressPanClick=false;if(e.button!==0||view==='three'||e.target.closest('.corner-controls'))return;const object=e.target.closest('.svg-object');if(object&&!panMode&&!spaceHeld)return;e.preventDefault();e.stopImmediatePropagation();const v=svg.viewBox.baseVal;pan={x:e.clientX,y:e.clientY,v:{x:v.x,y:v.y,width:v.width,height:v.height}};},true);
   window.addEventListener('pointermove',e=>{if(!pan)return;if(Math.hypot(e.clientX-pan.x,e.clientY-pan.y)<4&&!suppressPanClick)return;suppressPanClick=true;document.body.classList.add('panning');e.preventDefault();const bounds=svg.getBoundingClientRect(),k=Math.max(pan.v.width/bounds.width,pan.v.height/bounds.height);svg.setAttribute('viewBox',`${pan.v.x-(e.clientX-pan.x)*k} ${pan.v.y-(e.clientY-pan.y)*k} ${pan.v.width} ${pan.v.height}`);},{capture:true});
-  window.addEventListener('pointerup',()=>{if(!pan)return;pan=null;enhance();},{capture:true});window.addEventListener('pointercancel',()=>{if(!pan)return;pan=null;enhance();},{capture:true});
+  window.addEventListener('pointerup',()=>{if(!pan)return;pan=null;if(suppressPanClick)enhance();},{capture:true});window.addEventListener('pointercancel',()=>{if(!pan)return;pan=null;enhance();},{capture:true});
   svg.addEventListener('wheel',e=>{if(view==='three')return;e.preventDefault();zoomPlan(Math.exp(-e.deltaY*.0015),e.clientX,e.clientY);},{passive:false});
   function enhance(){
     observer.disconnect();
@@ -256,7 +283,7 @@
           const dims=el('g',{class:'studio-art','pointer-events':'none'},svg);
           o.points.forEach((p,i)=>{const q=o.points[(i+1)%o.points.length],length=Math.hypot(q.x-p.x,q.y-p.y)*(state.image.metersPerPixel||0);if(length<1)return;const t=el('text',{x:(p.x+q.x)/2,y:(p.y+q.y)/2-12,'text-anchor':'middle',fill:'#6b805a','font-size':Math.max(state.image.width*.011,12)},dims);t.textContent=P.lengthText(length);});
         }
-        if(o.kind==='bed'){shape.setAttribute('fill','url(#soil)');shape.setAttribute('stroke','#9a966e');shape.setAttribute('stroke-width','2');}
+        if(o.kind==='bed'){shape.setAttribute('fill','url(#soil)');shape.setAttribute('stroke','#9a966e');shape.setAttribute('stroke-width','2');if(o.species){const art=el('g',{class:'studio-art','data-art-for':o.id,'pointer-events':'none'}),clip=el('clipPath',{id:'bed-'+o.id},defs);el('polygon',{points:o.points.map(p=>`${p.x},${p.y}`).join(' ')},clip);art.setAttribute('clip-path',`url(#bed-${o.id})`);for(const p of bedPlants(o)){const sp=species(p),r=p.canopyM/(state.image.metersPerPixel||.025)/2;for(let i=0;i<5;i++){const a=i*2.4;el('ellipse',{cx:p.point.x+Math.cos(a)*r*.3,cy:p.point.y+Math.sin(a)*r*.3,rx:r*.55,ry:r*.35,fill:i%2?sp.light:sp.color,transform:`rotate(${i*72} ${p.point.x} ${p.point.y})`},art);}}shape.after(art);}}
         if(o.kind==='path'&&o.rowPlant){
           shape.setAttribute('stroke','transparent');shape.removeAttribute('vector-effect');
           const sp=species(o),art=el('g',{class:'studio-art','data-art-for':o.id,'pointer-events':'none'}),scale=state.image.metersPerPixel||.025,rowWidth=(o.widthM||.8)/scale;
@@ -268,12 +295,14 @@
           const art=el('g',{class:'studio-art','data-art-for':o.id,'pointer-events':'none'});for(let j=1;j<o.points.length;j++){const a=o.points[j-1],b=o.points[j],len=Math.hypot(b.x-a.x,b.y-a.y),count=Math.max(1,Math.floor(len*(state.image.metersPerPixel||.025)/(type==='drip'?.5:2)));for(let i=0;i<=count;i++){const t=i/count,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;if(type==='sprinkler'){el('circle',{cx:x,cy:y,r:Math.max(5,1/(state.image.metersPerPixel||.025))*.25,fill:'none',stroke:'#58acd0','stroke-width':1,'stroke-dasharray':'3 4',opacity:.55},art);el('circle',{cx:x,cy:y,r:3,fill:'#2878a6'},art);}else if(type==='drip')el('circle',{cx:x,cy:y,r:2.2,fill:'#1d6f99'},art);}}shape.after(art);
         }
         if(o.kind==='accessory'){
-          const type=o.accessoryType||'compost',colors={compost:['#6d7657','#46523f'],waterButt:['#547986','#355d6c'],shed:['#987657','#674f3c'],greenhouse:['#b9d6c7','#6d9b87'],coldFrame:['#b9d6c7','#6d9b87'],bench:['#a47c50','#705338']}[type];shape.setAttribute('fill',colors[0]);shape.setAttribute('stroke',colors[1]);
+          const type=o.accessoryType||'compost',colors={compost:['#6d7657','#46523f'],waterButt:['#547986','#355d6c'],shed:['#987657','#674f3c'],greenhouse:['#b9d6c7','#6d9b87'],coldFrame:['#b9d6c7','#6d9b87'],bench:['#a47c50','#705338'],playground:['#b18a55','#67513a']}[type]||['#788270','#4f5d4a'];shape.setAttribute('fill',colors[0]);shape.setAttribute('stroke',colors[1]);
           const s=state.image.metersPerPixel||.025,w=o.widthM/s,h=o.depthM/s,x=o.point.x,y=o.point.y,art=el('g',{class:'studio-art','data-art-for':o.id,'pointer-events':'none'});
           if(type==='compost')for(let i=-2;i<=2;i++)el('line',{x1:x-w*.42,x2:x+w*.42,y1:y+i*h*.15,y2:y+i*h*.15,stroke:'#46523f','stroke-width':Math.max(1,w*.025)},art);
           if(type==='waterButt'){el('ellipse',{cx:x,cy:y-h*.35,rx:w*.36,ry:h*.1,fill:'#6f97a0'},art);el('circle',{cx:x+w*.25,cy:y+h*.2,r:w*.05,fill:'#d7b260'},art);}
           if(['greenhouse','coldFrame'].includes(type)){el('line',{x1:x-w*.45,y1:y,x2:x+w*.45,y2:y,stroke:'#6d9b87','stroke-width':2},art);el('line',{x1:x,y1:y-h*.45,x2:x,y2:y+h*.45,stroke:'#6d9b87','stroke-width':2},art);}
           if(type==='bench'){for(const yy of [-.22,0,.22])el('line',{x1:x-w*.42,x2:x+w*.42,y1:y+yy*h,y2:y+yy*h,stroke:'#705338','stroke-width':Math.max(2,h*.12)},art);}
+          if(type==='greenhouse')for(let i=-3;i<=3;i++)el('line',{x1:x-w*.48,x2:x+w*.48,y1:y+i*h/8,y2:y+i*h/8,stroke:'#71958c','stroke-width':2},art);
+          if(type==='playground'){el('path',{d:`M ${x-w*.46} ${y} L ${x-w*.28} ${y-h*.38} H ${x+w*.38} V ${y+h*.38} H ${x-w*.28} Z`,fill:'#cba574',stroke:'#73563c','stroke-width':3},art);el('circle',{cx:x,cy:y,r:w*.045,fill:'#73563c'},art);el('path',{d:`M ${x} ${y} L ${x+w*.28} ${y-h*.23} L ${x+w*.28} ${y+h*.23} Z`,fill:'#f3ead3'},art);}
           shape.after(art);
         }
         if(o.kind==='pergola'){
@@ -325,10 +354,15 @@
         }
       });
     }else {const base=svg.querySelector('image');if(base)base.style.opacity='1';}
+    // Paint ground first regardless of creation order. Vines remain above paths.
+    const rank=o=>o.kind==='property'?0:o.kind==='path'&&!o.rowPlant?1:o.kind==='bed'?2:3;
+    [...state.image.objects].sort((a,b)=>rank(a)-rank(b)).forEach(o=>{const shape=svg.querySelector(`[data-id="${o.id}"]`),art=svg.querySelector(`[data-art-for="${o.id}"]`);if(shape)svg.appendChild(shape);if(art)svg.appendChild(art);if(o.point&&o.rotationDeg){const t=`rotate(${o.rotationDeg} ${o.point.x} ${o.point.y})`;shape?.setAttribute('transform',t);art?.setAttribute('transform',t);}});
+    [...svg.children].filter(n=>!n.hasAttribute('data-id')&&!n.hasAttribute('data-label-for')&&!n.classList.contains('studio-art')&&['polygon','polyline','circle'].includes(n.tagName)).forEach(n=>{n.style.pointerEvents='none';svg.appendChild(n);});
     svg.querySelectorAll('[data-label-for]').forEach(label=>{const o=state.image.objects.find(o=>o.id===label.getAttribute('data-label-for'));if(!o)return;const plot=['property','bed'].includes(o.kind);label.style.display=o.kind==='irrigation'&&!irrigationVisible?'none':view!=='reference'&&o.id!==state.selectedId&&['tree','path','irrigation'].includes(o.kind)?'none':'';label.textContent=plot?`${o.name} · ${state.image.metersPerPixel?P.areaText(P.imagePolygonArea(o.points)*state.image.metersPerPixel**2):'Set scale to calculate area'}`:o.name;svg.appendChild(label);});
     const props=state.image.objects.filter(o=>o.kind==='property'),scale=state.image.metersPerPixel;
-    $('gardenSummary').textContent=`${props.length&&scale?P.areaText(props.reduce((a,o)=>a+P.imagePolygonArea(o.points)*scale*scale,0))+' garden · ':''}${state.image.objects.filter(o=>o.kind==='tree'||o.rowPlant).length} plantings · ${view==='three'?'3D preview':'Measured design'}`;
-    const selected=state.image.objects.find(o=>o.id===state.selectedId);if(selected)$('objectHeight').value=selected.heightM||species(selected).height;
+    $('gardenSummary').textContent=`${props.length&&scale?P.areaText(props.reduce((a,o)=>a+P.imagePolygonArea(o.points)*scale*scale,0))+' garden · ':''}${state.image.objects.filter(o=>o.kind==='tree'||o.rowPlant||(o.kind==='bed'&&o.species)).length} plantings · ${view==='three'?'3D preview':'Measured design'}`;
+    const selected=state.image.objects.find(o=>o.id===state.selectedId);if(selected)$('objectHeight').value=selected.heightM||(selected.kind==='bed'?.18:species(selected).height);
+    $('objectRotation').value=selected?.rotationDeg||0;$('cropBedFields').hidden=selected?.kind!=='bed';if(selected?.kind==='bed'){$('bedCrop').value=selected.species||'';$('bedSpacing').value=selected.spacingM||species(selected).diameter||.5;}
     $('editCorners').style.display=selected?.points&&state.mode==='image'?'block':'none';
     $('editCorners').textContent=editingCorners?'Done editing corners':'Edit corners';
     if(editingCorners&&selected?.points&&!state.tool&&view!=='three'){
@@ -368,26 +402,33 @@
     if(view!=='three')return;
     const rect=canvas.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1);canvas.width=rect.width*dpr;canvas.height=rect.height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
     const W=rect.width,H=rect.height,s=state.image.metersPerPixel||.025,gw=state.image.width*s,gd=state.image.height*s;
-    const unit=Math.min(W/(gw+gd*.4),H/(gd*.65+gw*.35+8))*.78*camera.zoom;
+    const unit=Math.min(W/(gw+gd*.4),H/(gd*.65+gw*.35+8))*.94*camera.zoom;
     const cy=Math.cos(camera.yaw),sy=Math.sin(camera.yaw),cp=Math.cos(camera.pitch),sp=Math.sin(camera.pitch);
     const project=([x,y,z])=>{x-=gw/2;z-=gd/2;const a=x*cy-z*sy,b=x*sy+z*cy;return{x:W/2+a*unit,y:H*.56+(b*sp-y*cp)*unit,depth:b*cp+y*sp};};
     const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#dbe8eb');sky.addColorStop(.65,'#edf1e7');sky.addColorStop(1,'#d5dfcc');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
-    let layer=3;
+    let layer=3,cropDetail=false;
     const faces=[];const face=(points,color,stroke)=>faces.push({points,color,stroke,layer,depth:points.reduce((sum,p)=>sum+project(p).depth,0)/points.length});
     function box(x,y,z,w,h,d,color){const a=[x-w/2,y,z-d/2],b=[x+w/2,y,z-d/2],c=[x+w/2,y,z+d/2],e=[x-w/2,y,z+d/2],up=p=>[p[0],p[1]+h,p[2]];face([a,b,up(b),up(a)],color);face([b,c,up(c),up(b)],shade(color,-18));face([c,e,up(e),up(c)],shade(color,-8));face([e,a,up(a),up(e)],shade(color,5));face([up(a),up(b),up(c),up(e)],shade(color,22));}
     function cylinder(x,y,z,r,h,color,n=10){const bottom=[],top=[];for(let i=0;i<n;i++){const a=i*Math.PI*2/n;bottom.push([x+Math.cos(a)*r,y,z+Math.sin(a)*r]);top.push([x+Math.cos(a)*r,y+h,z+Math.sin(a)*r]);}for(let i=0;i<n;i++)face([bottom[i],bottom[(i+1)%n],top[(i+1)%n],top[i]],shade(color,Math.round(Math.cos(i*Math.PI*2/n)*14)));face(top,shade(color,20));}
-    function canopy(x,y,z,rx,h,color,rz=rx){const n=10,rings=5;for(let j=0;j<rings;j++){const t1=-Math.PI/2+j*Math.PI/rings,t2=-Math.PI/2+(j+1)*Math.PI/rings;for(let i=0;i<n;i++){const a=i*2*Math.PI/n,b=(i+1)*2*Math.PI/n;const p=(t,a)=>[x+Math.cos(t)*Math.cos(a)*rx,y+Math.sin(t)*h,z+Math.cos(t)*Math.sin(a)*rz];face([p(t1,a),p(t1,b),p(t2,b),p(t2,a)],shade(color,Math.round(Math.cos(a)*12+j*5-9)));}}}
+    function canopy(x,y,z,rx,h,color,rz=rx){const n=rx<.15||cropDetail?6:14,rings=rx<.15||cropDetail?3:7;for(let j=0;j<rings;j++){const t1=-Math.PI/2+j*Math.PI/rings,t2=-Math.PI/2+(j+1)*Math.PI/rings;for(let i=0;i<n;i++){const a=i*2*Math.PI/n,b=(i+1)*2*Math.PI/n,t=(t1+t2)/2,light=Math.cos(t)*Math.cos(a)*-.45+Math.sin(t)*.8+Math.cos(t)*Math.sin(a)*-.3;const p=(t,a)=>[x+Math.cos(t)*Math.cos(a)*rx,y+Math.sin(t)*h,z+Math.cos(t)*Math.sin(a)*rz];face([p(t1,a),p(t1,b),p(t2,b),p(t2,a)],shade(color,Math.round(light*30-5)));}}}
+    function leaf(x,y,z,a,r,color){const tip=[x+Math.cos(a)*r,y+r*.18,z+Math.sin(a)*r],base=[x,y,z],mid=[x+Math.cos(a)*r*.5,y+r*.25,z+Math.sin(a)*r*.5],left=[mid[0]-Math.sin(a)*r*.28,mid[1]-.04,mid[2]+Math.cos(a)*r*.28],right=[mid[0]+Math.sin(a)*r*.28,mid[1]-.04,mid[2]-Math.cos(a)*r*.28];face([base,left,tip,mid],shade(color,14));face([base,mid,tip,right],shade(color,-7));}
     function limb(a,b,w,color){const dx=b[0]-a[0],dz=b[2]-a[2],len=Math.hypot(dx,dz)||1,px=-dz/len*w/2,pz=dx/len*w/2,up=[0,w*.45,0];face([[a[0]+px,a[1],a[2]+pz],[a[0]-px,a[1],a[2]-pz],[b[0]-px,b[1],b[2]-pz],[b[0]+px,b[1],b[2]+pz]],color);face([[a[0]+px+up[0],a[1]+up[1],a[2]+pz+up[2]],[b[0]+px+up[0],b[1]+up[1],b[2]+pz+up[2]],[b[0]-px+up[0],b[1]+up[1],b[2]-pz+up[2]],[a[0]-px+up[0],a[1]+up[1],a[2]-pz+up[2]]],shade(color,16));}
     layer=0;box(gw/2,-.4,gd/2,gw,.3,gd,'#bdc8aa');
     face([[0,-.1,0],[gw,-.1,0],[gw,-.1,gd],[0,-.1,gd]],'#dfe7d4');
     // Ground shadows give plant heights and footprints a readable visual anchor.
     const shadows=[];
     for(const o of state.image.objects){if(!o.point||!['tree','accessory'].includes(o.kind))continue;const h=o.heightM||(o.kind==='tree'?species(o).height:1),r=o.kind==='tree'?(o.canopyM||3)/2:(o.widthM||1)*.65;shadows.push(Array.from({length:24},(_,i)=>{const a=i*Math.PI/12;return[o.point.x*s+h*.28+Math.cos(a)*r,.025,o.point.y*s+h*.18+Math.sin(a)*r*.65];}));}
-    state.image.objects.forEach(o=>{
-      if(o.kind==='irrigation'&&!irrigationVisible)return;layer=o.kind==='property'?1:['path','bed','irrigation'].includes(o.kind)?2:3;
+    const sceneObjects=[...state.image.objects,...state.image.objects.flatMap(bedPlants)];
+    sceneObjects.forEach(o=>{
+      if(o.kind==='irrigation'&&!irrigationVisible)return;cropDetail=!!o.crop;const objectStart=faces.length;layer=o.kind==='property'?1:o.kind==='path'&&!o.rowPlant?1.5:['bed','irrigation'].includes(o.kind)?2:3;
       if(o.kind==='property'||o.kind==='bed'){
         const h=o.kind==='property'?.01:(o.heightM||.18);const pts=o.points.map(p=>[p.x*s,h,p.y*s]);face(pts,o.kind==='property'?'#cadbb4':'#afa17b');
         if(o.kind==='bed')pts.forEach((p,i)=>{const q=pts[(i+1)%pts.length];face([p,q,[q[0],0,q[2]],[p[0],0,p[2]]],'#95825c');});
+        if(o.kind==='bed'){
+          for(let i=0;i<o.points.length;i++){const a=o.points[i],b=o.points[(i+1)%o.points.length];limb([a.x*s,h+.02,a.y*s],[b.x*s,h+.02,b.y*s],.065,'#a18b61');}
+          const c=pivot(o),xs=o.points.map(p=>p.x),ys=o.points.map(p=>p.y),area=(Math.max(...xs)-Math.min(...xs))*(Math.max(...ys)-Math.min(...ys));
+          for(let i=0;i<Math.min(240,area*s*s*12);i++){const p={x:Math.min(...xs)+(Math.sin(i*78.233)*43758.5453%1+1)%1*(Math.max(...xs)-Math.min(...xs)),y:Math.min(...ys)+(Math.sin(i*39.425)*24634.6345%1+1)%1*(Math.max(...ys)-Math.min(...ys))};if(inside(p,o.points))face([[p.x*s,h+.006,p.y*s],[p.x*s+.025,h+.006,p.y*s+.015],[p.x*s+.01,h+.006,p.y*s+.035]],i%2?'#8f7b58':'#c4ad86');}
+        }
       }else if(o.kind==='path'&&o.rowPlant){
         const vine=species(o),h=o.heightM||vine.height||1.8;
         for(let i=1;i<o.points.length;i++){const a=o.points[i-1],b=o.points[i],ax=a.x*s,az=a.y*s,bx=b.x*s,bz=b.y*s,len=Math.hypot(bx-ax,bz-az);if(!len)continue;limb([ax,h*.72,az],[bx,h*.72,bz],.09,'#806348');limb([ax,h*.42,az],[bx,h*.42,bz],.06,'#8b704f');const count=Math.max(2,Math.ceil(len/1.1));for(let j=0;j<=count;j++){const t=j/count,x=ax+(bx-ax)*t,z=az+(bz-az)*t;if(j%2===0)box(x,0,z,.09,h,.09,'#806348');canopy(x,h*.62,z,.38,h*.2,j%2?vine.color:vine.light,.25);if(j%3===1)for(let k=0;k<3;k++)canopy(x+(k-1)*.07,h*(.42-k*.025),z+.04,.035,.055,vine.fruit,.03);}}
@@ -419,27 +460,46 @@
         }else if(sp.form==='stake'){
           box(x,0,z,.055,h,.055,'#80684b');for(let i=0;i<7;i++){const a=i*2.2,cy=h*(.25+i*.09),cx=x+Math.cos(a)*r*.3,cz=z+Math.sin(a)*r*.3;canopy(cx,cy,cz,r*.25,h*.1,i%2?sp.light:sp.color,r*.15);if(sp.fruit&&i%2===0)canopy(cx+r*.08,cy-h*.07,cz,.045,.055,sp.fruit,.04);}
         }else if(['groundcover','herb'].includes(sp.form)){
-          for(let i=0;i<8;i++){const a=i*2.25,rr=r*(.08+(i%3)*.22),cx=x+Math.cos(a)*rr,cz=z+Math.sin(a)*rr;canopy(cx,h*.22,cz,r*.28,h*.18,i%2?sp.light:sp.color,r*.18);if(sp.fruit&&i%3===0)canopy(cx+r*.08,h*.18,cz,.035,.035,sp.fruit);}
+          for(let i=0;i<8;i++){const a=i*2.25;leaf(x,h*.2,z,a,r,i%2?sp.light:sp.color);if(sp.fruit&&i%3===0)canopy(x+Math.cos(a)*r*.5,h*.2,z+Math.sin(a)*r*.5,.035,.035,sp.fruit);}
         }else if(sp.form==='squash'){
           for(let i=0;i<8;i++){const a=i*Math.PI/4;canopy(x+Math.cos(a)*r*.32,h*.25,z+Math.sin(a)*r*.32,r*.3,h*.15,i%2?sp.light:sp.color,r*.18);}canopy(x+r*.25,h*.18,z+r*.1,.08,.08,sp.fruit,.2);
         }else if(['bulb','root'].includes(sp.form)){
           for(let i=0;i<7;i++){const a=i*.9;limb([x,.03,z],[x+Math.cos(a)*r*.42,h,z+Math.sin(a)*r*.42],.025,i%2?sp.light:sp.color);}canopy(x,.1,z,r*.13,.1,sp.fruit||'#d6ccb1');
         }else if(sp.form==='rosette'){
-          for(let i=0;i<9;i++){const a=i*2.1;canopy(x+Math.cos(a)*r*.25,h*.22,z+Math.sin(a)*r*.25,r*.25,h*.18,i%2?sp.light:sp.color,r*.15);}canopy(x,h*.3,z,r*.24,h*.2,sp.light);
+          for(let i=0;i<10;i++)leaf(x,h*.18,z,i*2.399,r*1.15,i%2?sp.light:sp.color);canopy(x,h*.4,z,r*.38,h*.3,sp.light);
         }else if(sp.form==='crop'){
-          for(let i=0;i<7;i++){const a=i*2.23,rr=r*(.08+(i%3)*.18),cx=x+Math.cos(a)*rr,cz=z+Math.sin(a)*rr,cy=h*(.32+(i%2)*.12);canopy(cx,cy,cz,r*.25,h*.18,i%2?sp.light:sp.color,r*.2);if(sp.fruit&&i%3===0)canopy(cx+r*.06,cy-h*.08,cz,.04,.05,sp.fruit);}
+          limb([x,0,z],[x,h*.72,z],.02,sp.dark);for(let i=0;i<9;i++){const a=i*2.399,cy=h*(.2+(i%4)*.12);leaf(x,cy,z,a,r*.85,i%2?sp.light:sp.color);if(sp.fruit&&i%3===0)canopy(x+Math.cos(a)*r*.5,cy-.05,z+Math.sin(a)*r*.5,.045,.065,sp.fruit);}
         }else{
           cylinder(x,0,z,.09,h*.48,'#826144');
           for(let i=0;i<9;i++){const a=i*2.399,rr=i===0?0:r*.5,cx=x+Math.cos(a)*rr,cz=z+Math.sin(a)*rr,cy=h*(.62+(i%3)*.075);limb([x,h*.36,z],[cx,cy,cz],.065,'#826144');canopy(cx,cy,cz,r*.52,h*.24,i%3===0?sp.light:i%3===1?sp.color:sp.dark,r*.48);}
           if(sp.fruit)for(let i=0;i<7;i++){const a=i*2.4;canopy(x+Math.cos(a)*r*.7,h*(.62+(i%3)*.08),z+Math.sin(a)*r*.7,.065,.065,sp.fruit,.055);}
         }
+        if(!o.crop&&['round','avocado','airy'].includes(sp.form))for(let i=0;i<100;i++){const a=i*2.399,t=Math.asin(-.8+1.6*(i/99)),rr=r*Math.cos(t)*.82,yy=h*(sp.form==='avocado'?.76:.69)+Math.sin(t)*h*.23;leaf(x+Math.cos(a)*rr,yy,z+Math.sin(a)*rr,a,r*(sp.form==='avocado'?.16:.11),i%3===0?sp.light:i%3===1?sp.color:sp.dark);}
       }else if(o.kind==='accessory'){
         const x=o.point.x*s,z=o.point.y*s,w=o.widthM||1,d=o.depthM||1,h=o.heightM||1,type=o.accessoryType||'compost';
-        if(['shed','greenhouse'].includes(type)){const eave=h*(type==='shed'?.82:.62),over=type==='shed'?.08:0,roof=type==='shed'?'#646958':'#b8d8d1';face([[x-w/2-over,eave,z-d/2-over],[x,h,z-d/2-over],[x,h,z+d/2+over],[x-w/2-over,eave,z+d/2+over]],roof);face([[x,h,z-d/2-over],[x+w/2+over,eave,z-d/2-over],[x+w/2+over,eave,z+d/2+over],[x,h,z+d/2+over]],shade(roof,-16));}
+        if(type==='shed'){const eave=h*.82,over=.08,roof='#646958';face([[x-w/2-over,eave,z-d/2-over],[x,h,z-d/2-over],[x,h,z+d/2+over],[x-w/2-over,eave,z+d/2+over]],roof);face([[x,h,z-d/2-over],[x+w/2+over,eave,z-d/2-over],[x+w/2+over,eave,z+d/2+over],[x,h,z+d/2+over]],shade(roof,-16));}
         if(type==='compost'){box(x,0,z,w,h,d,'#667052');for(let i=1;i<5;i++)box(x,h*i/5,z+d/2+.012,w+.04,.035,.035,'#47523f');}
         if(type==='waterButt'){cylinder(x,0,z,w*.46,h,'#547986',12);cylinder(x+w*.32,h*.2,z+d*.38,.045,.12,'#d0a954',7);}
         if(type==='shed'){box(x,0,z,w,h*.82,d,'#927052');face([[x-w*.56,h*.82,z-d*.55],[x,h,z-d*.55],[x+w*.56,h*.82,z-d*.55]],'#6b5140');face([[x-w*.56,h*.82,z+d*.55],[x+w*.56,h*.82,z+d*.55],[x,h,z+d*.55]],'#795b45');}
-        if(type==='greenhouse'){box(x,0,z,w,h*.62,d,'#9fc8b6');face([[x-w/2,h*.62,z-d/2],[x,h,z-d/2],[x+w/2,h*.62,z-d/2]],'#c2ddd1');face([[x-w/2,h*.62,z+d/2],[x+w/2,h*.62,z+d/2],[x,h,z+d/2]],'#aed2c2');for(const dx of [-w/2,0,w/2])box(x+dx,0,z,.035,h,d+.03,'#6d9b87');}
+        if(type==='greenhouse'){
+          box(x,.015,z,w,.04,d,'#9a8b67');
+          const hoop=(a,zz)=>[x+Math.cos(a)*w/2,.08+Math.sin(a)*(h-.08),zz],segments=20;
+          for(let i=0;i<segments;i++){const a=i*Math.PI/segments,b=(i+1)*Math.PI/segments;face([hoop(a,z-d/2),hoop(b,z-d/2),hoop(b,z+d/2),hoop(a,z+d/2)],shade('#c0dcd4',Math.round(Math.sin(a)*22-Math.cos(a)*14)));}
+          for(let j=0;j<=6;j++)for(let i=0;i<segments;i++)limb(hoop(i*Math.PI/segments,z-d/2+j*d/6),hoop((i+1)*Math.PI/segments,z-d/2+j*d/6),.045,'#76978c');
+          for(const zz of [z-d/2-.01,z+d/2+.01]){const end=Array.from({length:21},(_,i)=>hoop(i*Math.PI/20,zz));face(end,'#b6d3c8');box(x,0,zz,w*.3,h*.67,.035,'#87aa9e');for(const dx of [-w*.15,w*.15])box(x+dx,0,zz,.045,h*.68,.055,'#537f70');box(x,h*.68,zz,w*.34,.045,.055,'#537f70');}
+        }
+        if(type==='playground'){
+          const outline=[[-.5,0],[-.28,-.34],[.4,-.34],[.46,0],[.4,.34],[-.28,.34]],deck=h*.24;
+          const top=outline.map(([a,b])=>[x+a*w,deck,z+b*d]);face(top,'#d2ad7b');top.forEach((p,i)=>{const q=top[(i+1)%top.length];face([p,q,[x+(q[0]-x)*.84,.12,z+(q[2]-z)*.8],[x+(p[0]-x)*.84,.12,z+(p[2]-z)*.8]],i%2?'#9c7048':'#b88c59');limb(p,q,.07,'#785335');});
+          for(let i=-3;i<=3;i++)box(x+i*w*.09,deck+.01,z,.025,.02,d*.64,'#b48c5d');
+          for(const side of [-1,1]){limb([x-w*.25,deck+h*.17,z+side*d*.34],[x+w*.39,deck+h*.17,z+side*d*.34],.07,'#a77b4c');for(let i=0;i<5;i++)box(x-w*.25+i*w*.16,deck,z+side*d*.34,.06,h*.17,.06,'#967046');}
+          cylinder(x,deck,z,.06,h*.7,'#8a623c',10);limb([x-w*.23,h*.76,z],[x+w*.23,h*.76,z],.065,'#89633f');
+          face([[x-w*.22,h*.74,z],[x+w*.22,h*.74,z],[x+w*.16,h*.43,z+.12],[x-w*.16,h*.43,z+.12]],'#f5e8c9');
+          face([[x,h*.94,z],[x+w*.18,h*.88,z],[x,h*.83,z]],'#36494a');
+          box(x+w*.3,deck,z,w*.2,.08,d*.58,'#c39a65');
+          for(let i=0;i<5;i++)box(x+w*.43+i*w*.045,deck*(1-i/5),z,w*.09,.07,d*.22,'#bb8f59');
+          limb([x-w*.36,deck,z],[x-w*.48,.12,z],.04,'#d7c697');
+        }
         if(type==='coldFrame'){box(x,0,z,w,h,d,'#9fc8b6');box(x,h,z,.035,.04,d,'#6d9b87');box(x,h,z,w,.04,.035,'#6d9b87');}
         if(type==='bench'){box(x,h*.48,z,w,.12,d,'#9b744c');box(x,h*.62,z+d*.38,w,h*.32,.1,'#8d6847');for(const dx of [-w*.38,w*.38])for(const dz of [-d*.3,d*.3])box(x+dx,0,z+dz,.08,h*.5,.08,'#705338');}
       }else if(o.kind==='pergola'){
@@ -448,6 +508,7 @@
         for(let i=0;i<9;i++)box(x-w/2+i*w/8,h,z,.12,.14,d+.25,'#b29a70');
         const a=(o.rotationDeg||0)*Math.PI/180;for(let i=start;i<faces.length;i++){faces[i].points=faces[i].points.map(p=>[x+(p[0]-x)*Math.cos(a)-(p[2]-z)*Math.sin(a),p[1],z+(p[0]-x)*Math.sin(a)+(p[2]-z)*Math.cos(a)]);faces[i].depth=faces[i].points.reduce((sum,p)=>sum+project(p).depth,0)/faces[i].points.length;}
       }
+      if(o.point&&(o.rotationDeg||o.baseHeight)){const c=o.point,a=(o.rotationDeg||0)*Math.PI/180;for(let i=objectStart;i<faces.length;i++){faces[i].points=faces[i].points.map(p=>{const dx=p[0]-c.x*s,dz=p[2]-c.y*s;return[c.x*s+dx*Math.cos(a)-dz*Math.sin(a),p[1]+(o.baseHeight||0),c.y*s+dx*Math.sin(a)+dz*Math.cos(a)];});faces[i].depth=faces[i].points.reduce((sum,p)=>sum+project(p).depth,0)/faces[i].points.length;}}
     });
     shadows.forEach(points=>faces.push({points,color:'rgba(43,62,35,.15)',layer:2.5,depth:0}));
     faces.sort((a,b)=>a.layer-b.layer||a.depth-b.depth).forEach(f=>{ctx.beginPath();f.points.forEach((p,i)=>{const v=project(p);i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y);});ctx.closePath();ctx.fillStyle=f.color;ctx.fill();});
@@ -458,7 +519,8 @@
   new ResizeObserver(()=>{if(view==='three')draw3d();}).observe(workspace);
   // Restore the complete canvas, including its reference image, after a reload.
   const saved=P.store.get('plotline.studio',null);if(saved?.image){Object.assign(state.image,saved.image);state.image.draft=[];state.image.calibration=[];state.unit=saved.unit||state.unit;$('unitSelect').value=state.unit;}
-  if(!saved&&!localStorage.getItem('plotline.unit')){state.unit='metric';$('unitSelect').value='metric';$('pergolaWidth').value=4;$('pergolaDepth').value=3;$('pathWidth').value=1.2;$('treeCanopy').value=3;}
+  if(!saved&&!localStorage.getItem('plotline.unit')){state.unit='metric';$('unitSelect').value='metric';$('pergolaWidth').value=4;$('pergolaDepth').value=3;$('treeCanopy').value=3;}
+  $('pathWidth').value=state.unit==='imperial'?(0.5/.3048).toFixed(3):'0.5';
   setView(localStorage.getItem('plotline.studioView')||'plan');
   if(!state.image.objects.length){P.setStatus(view==='reference'?'Reference image ready · calibrate a known distance, then trace your garden':'Set your garden dimensions, trace a reference, or explore the sample garden');}
 })();

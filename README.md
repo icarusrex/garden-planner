@@ -2,6 +2,20 @@
 
 ## Garden studio
 
+Crop, herb, and berry palette entries draw planted polygon beds, with editable
+crop and spacing. Trees remain individual objects; grapes follow a drawn row.
+Bed patterns are clipped to the outline and use a capped representative density
+for large areas. The plan remains one editable bed, not hundreds of objects.
+
+Every object in the measured 2D design supports a rotation angle and a 90-degree
+turn. Polygon rotation preserves area and rotates planting rows with the bed.
+Paths default to 0.5 m, retain their physical width when changing units, and
+render below beds, plants, and structures regardless of creation order.
+
+The garden palette includes a hoop greenhouse and a pirate ship playground.
+The 3D view includes hoop ribs and doors, a ship hull/deck/railings/mast/sail,
+planted beds, leaf geometry, directional foliage shading, and soil texture.
+
 The local studio now opens in a clean illustrated 2D plan. `studio.css` and
 `studio.js` extend the original planner; publish these alongside `index.html`.
 

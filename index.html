@@ -361,8 +361,8 @@
       const species = $('treeSpecies').value.trim(), name = species || nextName('tree'); state.satelliteObjects[id] = { kind:'tree', name, canopyM: toMeters($('treeCanopy').value), species }; state.draw.setFeatureProperty(id,'kind','tree');
       finishMapObject(id, 'tree');
     } else if (kind === 'accessory') {
-      const type=$('accessoryType').value,defaults={compost:[1.2,1.2,1.2],waterButt:[.8,.8,1.2],shed:[2.4,1.8,2.2],greenhouse:[3,2,2.2],coldFrame:[1.5,.8,.6],bench:[1.5,.6,.9]}[type],id=state.draw.add({type:'Feature',properties:{kind:'accessory'},geometry:{type:'Point',coordinates:[e.lngLat.lng,e.lngLat.lat]}})[0];
-      state.satelliteObjects[id]={kind:'accessory',name:{compost:'Compost bin',waterButt:'Water butt',shed:'Tool shed',greenhouse:'Greenhouse',coldFrame:'Cold frame',bench:'Bench'}[type],accessoryType:type,widthM:defaults[0],depthM:defaults[1],heightM:defaults[2]};state.draw.setFeatureProperty(id,'kind','accessory');finishMapObject(id,'accessory');
+      const type=$('accessoryType').value,defaults={compost:[1.2,1.2,1.2],waterButt:[.8,.8,1.2],shed:[2.4,1.8,2.2],greenhouse:[3,5,2.2],coldFrame:[1.5,.8,.6],bench:[1.5,.6,.9],playground:[5,3,3.5]}[type],id=state.draw.add({type:'Feature',properties:{kind:'accessory'},geometry:{type:'Point',coordinates:[e.lngLat.lng,e.lngLat.lat]}})[0];
+      state.satelliteObjects[id]={kind:'accessory',name:{compost:'Compost bin',waterButt:'Water butt',shed:'Tool shed',greenhouse:'Hoop greenhouse',coldFrame:'Cold frame',bench:'Bench',playground:'Pirate ship playground'}[type],accessoryType:type,widthM:defaults[0],depthM:defaults[1],heightM:defaults[2]};state.draw.setFeatureProperty(id,'kind','accessory');finishMapObject(id,'accessory');
     } else if (kind === 'pergola') {
       const widthM = toMeters($('pergolaWidth').value), depthM = toMeters($('pergolaDepth').value);
       const rotationDeg = Number($('pergolaRotation').value) || 0;
@@ -557,7 +557,7 @@
       addImageObject({id:uid(),kind:'pergola',name:nextName('pergola'),center:p,widthM,depthM,rotationDeg}); clearTool(); return;
     }
     if (state.tool === 'accessory') {
-      const type=$('accessoryType').value,defaults={compost:[1.2,1.2,1.2],waterButt:[.8,.8,1.2],shed:[2.4,1.8,2.2],greenhouse:[3,2,2.2],coldFrame:[1.5,.8,.6],bench:[1.5,.6,.9]}[type],name={compost:'Compost bin',waterButt:'Water butt',shed:'Tool shed',greenhouse:'Greenhouse',coldFrame:'Cold frame',bench:'Bench'}[type];addImageObject({id:uid(),kind:'accessory',name,accessoryType:type,point:p,widthM:defaults[0],depthM:defaults[1],heightM:defaults[2]});clearTool();return;
+      const type=$('accessoryType').value,defaults={compost:[1.2,1.2,1.2],waterButt:[.8,.8,1.2],shed:[2.4,1.8,2.2],greenhouse:[3,5,2.2],coldFrame:[1.5,.8,.6],bench:[1.5,.6,.9],playground:[5,3,3.5]}[type],name={compost:'Compost bin',waterButt:'Water butt',shed:'Tool shed',greenhouse:'Hoop greenhouse',coldFrame:'Cold frame',bench:'Bench',playground:'Pirate ship playground'}[type];addImageObject({id:uid(),kind:'accessory',name,accessoryType:type,point:p,widthM:defaults[0],depthM:defaults[1],heightM:defaults[2]});clearTool();return;
     }
     if (state.tool === 'property' || state.tool === 'bed' || state.tool === 'path' || state.tool === 'irrigation') {
       const last=state.image.draft.at(-1);
@@ -639,7 +639,8 @@
       ev.stopPropagation();
       const startPt = svgPoint(ev);
       const origin = objectOrigin(o);
-      const baseTransform = o.kind==='pergola' && o.rotationDeg ? `rotate(${o.rotationDeg} ${o.center.x} ${o.center.y})` : '';
+      const center=o.center||o.point;
+      const baseTransform = center && o.rotationDeg ? `rotate(${o.rotationDeg} ${center.x} ${center.y})` : '';
       const label = svg.querySelector(`[data-label-for="${o.id}"]`);
       const art = [...svg.querySelectorAll('[data-art-for]')].find(n => n.getAttribute('data-art-for') === o.id);
       const artTransform = art?.getAttribute('transform') || '';
