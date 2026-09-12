@@ -7,3 +7,4 @@ body{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 .studio-reference .canvas-tools{display:flex;top:130px}
 body:not(.drawing) #imageCanvas{cursor:grab}
 body.panning #imageCanvas{cursor:grabbing}
+.plant-filter-label{display:block;font-size:10px;color:#7c8880;margin-bottom:5px}.plant-filter{margin-bottom:9px}.crop-rotation{margin-top:11px;padding:10px;border-radius:9px;background:#edf2e5;color:#536b4d;font-size:10px;line-height:1.55}.crop-rotation strong,.crop-rotation span{display:block}.crop-rotation strong{font-size:10px;letter-spacing:.4px;margin-bottom:3px;color:#3d5e43}

@@ -337,7 +337,7 @@
     const kind = state.pendingMapClick;
     if (kind === 'tree') {
       const id = state.draw.add({ type:'Feature', properties:{ kind:'tree' }, geometry:{ type:'Point', coordinates:[e.lngLat.lng,e.lngLat.lat] } })[0];
-      const name = nextName('tree'); state.satelliteObjects[id] = { kind:'tree', name, canopyM: toMeters($('treeCanopy').value), species: $('treeSpecies').value.trim() }; state.draw.setFeatureProperty(id,'kind','tree');
+      const species = $('treeSpecies').value.trim(), name = species || nextName('tree'); state.satelliteObjects[id] = { kind:'tree', name, canopyM: toMeters($('treeCanopy').value), species }; state.draw.setFeatureProperty(id,'kind','tree');
       finishMapObject(id, 'tree');
     } else if (kind === 'pergola') {
       const widthM = toMeters($('pergolaWidth').value), depthM = toMeters($('pergolaDepth').value);
@@ -516,7 +516,7 @@
     if (!state.tool) return;
     if (state.tool === 'tree') {
       if (!state.image.metersPerPixel) return alert('Calibrate the image scale before placing a sized plant.');
-      addImageObject({id:uid(),kind:'tree',name:nextName('tree'),point:p,canopyM:toMeters($('treeCanopy').value),species:$('treeSpecies').value.trim()}); clearTool(); return;
+      const species=$('treeSpecies').value.trim(); addImageObject({id:uid(),kind:'tree',name:species||nextName('tree'),point:p,canopyM:toMeters($('treeCanopy').value),species}); clearTool(); return;
     }
     if (state.tool === 'pergola') {
       if (!state.image.metersPerPixel) return alert('Calibrate the image scale before placing a sized pergola.');
