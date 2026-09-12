@@ -11,8 +11,11 @@ The local studio now opens in a clean illustrated 2D plan. `studio.css` and
   separately, so later design edits do not modify the original tracing.
 - Select and drag plants, beds, paths, and pergolas. Arrow keys move the selected
   object by 10 cm; Shift moves it by one meter. Duplicate and undo/redo are available.
-- Plant cards include olive, citrus, lavender, rosemary, hydrangea, and cypress.
+- Plant cards include olive, citrus, avocado, lavender, rosemary, hydrangea, and cypress.
   The 2D canopy represents the entered mature diameter, rather than a fixed marker.
+- Plant forms are species-aware in both views. Avocado trees have a broad,
+  layered evergreen crown, visible branching, and subtle fruit details rather
+  than reusing the generic round-tree model.
 - **3D garden** shows the same plan geometry in an orthographic scene. Drag to
   orbit and scroll to zoom. Edit objects in 2D. Heights can be set individually in
   meters; defaults are illustrative, not measurements inferred from imagery.
