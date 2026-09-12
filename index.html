@@ -530,6 +530,9 @@
     clearTool(); state.tool = 'calibrate'; state.image.calibration=[]; setStatus('Calibration: click the two ends of a known distance'); renderImage();
   }
 
+  let suppressDragClick=false;
+  svg.addEventListener('pointerdown',()=>{suppressDragClick=false;},true);
+  svg.addEventListener('click',e=>{if(suppressDragClick){e.stopImmediatePropagation();e.preventDefault();suppressDragClick=false;}},true);
   svg.addEventListener('click', (e) => {
     if (!state.image.src) return;
     const p = svgPoint(e);
@@ -632,7 +635,7 @@
     }
     el.setAttribute('data-id',o.id); el.classList.add('svg-object'); if(o.id===state.selectedId) el.classList.add('selected'); el.setAttribute('vector-effect','non-scaling-stroke');
     el.addEventListener('pointerdown', ev => {
-      if (state.tool) return;
+      if (state.tool === 'calibrate') return;
       ev.stopPropagation();
       const startPt = svgPoint(ev);
       const origin = objectOrigin(o);
@@ -644,7 +647,7 @@
       el.setPointerCapture(ev.pointerId);
       const onMove = mv => {
         const p = svgPoint(mv), dx = p.x-startPt.x, dy = p.y-startPt.y;
-        if (!drag.moved && Math.hypot(dx,dy) > 3) { drag.moved = true; el.classList.add('dragging'); }
+        if (!drag.moved && Math.hypot(mv.clientX-ev.clientX,mv.clientY-ev.clientY) > 4) { drag.moved = true; el.classList.add('dragging'); }
         if (!drag.moved) return;
         el.setAttribute('transform', `translate(${dx} ${dy}) ${baseTransform}`.trim());
         if (label) label.setAttribute('transform', `translate(${dx} ${dy})`);
@@ -656,11 +659,12 @@
         el.removeEventListener('pointerup', onUp);
         el.classList.remove('dragging');
         if (drag.moved) {
+          suppressDragClick=true;
           state.selectedId=o.id;
           const p = svgPoint(up), dx = p.x-startPt.x, dy = p.y-startPt.y;
           applyDrag(o, origin, dx, dy);
           persistImage(); renderImage(); refreshSelected(); updateObjectList(); setStatus('Moved · select and drag again, or edit precisely in the Selected panel');
-        } else {
+        } else if (!state.tool) {
           state.selectedId=o.id; renderImage(); refreshSelected(); updateObjectList();
         }
       };
