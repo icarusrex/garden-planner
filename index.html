@@ -284,6 +284,7 @@
   }
 
   function initMap(token) {
+    if (typeof mapboxgl === 'undefined' || typeof MapboxDraw === 'undefined') { setStatus('Satellite libraries did not load. Check your connection or use an uploaded image.'); return; }
     if (!token || !token.startsWith('pk.')) { alert('Please enter a valid public Mapbox token beginning with pk.'); return; }
     localStorage.setItem('plotline.mapboxToken', token);
     mapboxgl.accessToken = token;
@@ -292,6 +293,7 @@
     state.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
     state.draw = new MapboxDraw({ displayControlsDefault: false, userProperties: true, controls: {}, styles: drawStyles() });
     state.map.addControl(state.draw);
+    state.map.on('error', () => { if(state.mode==='satellite') setStatus('Satellite imagery could not load. Check the Mapbox token and its allowed URLs.'); });
     state.map.on('load', () => {
       const saved = store.get('plotline.mapGeoJSON', null);
       if (saved?.features?.length) state.draw.set(saved);
@@ -437,14 +439,22 @@
   const svg = $('imageCanvas');
   function loadImage(file) {
     if (!file) return;
+    setStatus('Opening reference image…');
     const reader = new FileReader();
+    reader.onerror = () => setStatus('Could not read this file. Try choosing it again.');
     reader.onload = () => {
       const img = new Image();
       img.onload = () => {
+        if(state.image.objects.length) store.set('plotline.previousImageProject',state.image);
+        state.image.objects=[]; state.image.draft=[]; state.image.calibration=[]; state.selectedId=null;
         state.image.src = reader.result; state.image.width = img.naturalWidth; state.image.height = img.naturalHeight;
+        state.image.metersPerPixel = null;
+        store.set('plotline.imageScale', null);
         svg.setAttribute('viewBox', `0 0 ${img.naturalWidth} ${img.naturalHeight}`);
         $('imageEmpty').style.display='none'; renderImage(); setStatus('Image loaded · calibrate scale before measuring');
+        document.dispatchEvent(new CustomEvent('plotline:image-loaded', {detail:{name:file.name}}));
       };
+      img.onerror = () => setStatus('This image format could not be opened. Choose a PNG, JPEG, or WebP image.');
       img.src = reader.result;
     };
     reader.readAsDataURL(file);
@@ -452,7 +462,8 @@
 
   function svgPoint(evt) {
     const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
-    return pt.matrixTransform(svg.getScreenCTM().inverse());
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    return {x:p.x,y:p.y};
   }
   function imagePixelDistance(points) { let d=0; for(let i=1;i<points.length;i++) d += Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y); return d; }
   function objectOrigin(o) {
@@ -493,20 +504,18 @@
     if (!state.image.src) return;
     const p = svgPoint(e);
     if (state.tool === 'calibrate') {
+      if (state.image.calibration.length >= 2) return;
+      if (state.image.calibration.length === 1 && imagePixelDistance([state.image.calibration[0],p]) < 5) { setStatus('Choose a second point farther from the first'); return; }
       state.image.calibration.push(p); renderImage();
+      setStatus('First point marked · click the other end of the known distance');
       if (state.image.calibration.length === 2) {
-        const val = Number(prompt(`What is the real distance between those points, in ${state.unit === 'imperial' ? 'feet' : 'meters'}?`, state.unit === 'imperial' ? '20' : '6'));
-        if (val > 0) {
-          const meters = toMeters(val), px = imagePixelDistance(state.image.calibration);
-          state.image.metersPerPixel = meters/px; store.set('plotline.imageScale', state.image.metersPerPixel);
-          $('scaleHint').textContent = `Scale calibrated · 100 px ≈ ${lengthText(state.image.metersPerPixel*100)}`;
-        }
-        clearTool(); renderImage(); updateObjectList();
+        document.dispatchEvent(new CustomEvent('plotline:calibration-ready'));
       }
       return;
     }
     if (!state.tool) return;
     if (state.tool === 'tree') {
+      if (!state.image.metersPerPixel) return alert('Calibrate the image scale before placing a sized plant.');
       addImageObject({id:uid(),kind:'tree',name:nextName('tree'),point:p,canopyM:toMeters($('treeCanopy').value),species:$('treeSpecies').value.trim()}); clearTool(); return;
     }
     if (state.tool === 'pergola') {
@@ -515,17 +524,15 @@
       addImageObject({id:uid(),kind:'pergola',name:nextName('pergola'),center:p,widthM,depthM,rotationDeg}); clearTool(); return;
     }
     if (state.tool === 'property' || state.tool === 'bed' || state.tool === 'path') {
+      const last=state.image.draft.at(-1);
+      if(last && Math.hypot(p.x-last.x,p.y-last.y)<2) return;
       state.image.draft.push(p); renderImage();
     }
   });
   svg.addEventListener('dblclick', (e) => {
     e.preventDefault();
     if (!['property','bed','path'].includes(state.tool) || state.image.draft.length < (state.tool === 'path' ? 2 : 3)) return;
-    const kind = state.tool, points=[...state.image.draft];
-    // A browser dblclick also emits the second click. Drop that duplicate endpoint.
-    if (points.length > (kind === 'path' ? 2 : 3)) points.pop();
-    addImageObject({id:uid(),kind,name:nextName(kind),points,widthM:kind==='path'?toMeters($('pathWidth').value):undefined});
-    clearTool();
+    document.getElementById('finishBtn').click();
   });
 
   function addImageObject(obj) { state.image.objects.push(obj); state.selectedId=obj.id; persistImage(); renderImage(); refreshSelected(); updateObjectList(); setStatus(`${kindLabel[obj.kind]} added`); }
@@ -593,6 +600,8 @@
       const origin = objectOrigin(o);
       const baseTransform = o.kind==='pergola' && o.rotationDeg ? `rotate(${o.rotationDeg} ${o.center.x} ${o.center.y})` : '';
       const label = svg.querySelector(`[data-label-for="${o.id}"]`);
+      const art = [...svg.querySelectorAll('[data-art-for]')].find(n => n.getAttribute('data-art-for') === o.id);
+      const artTransform = art?.getAttribute('transform') || '';
       const drag = { moved:false };
       el.setPointerCapture(ev.pointerId);
       const onMove = mv => {
@@ -601,6 +610,7 @@
         if (!drag.moved) return;
         el.setAttribute('transform', `translate(${dx} ${dy}) ${baseTransform}`.trim());
         if (label) label.setAttribute('transform', `translate(${dx} ${dy})`);
+        if (art) art.setAttribute('transform', `translate(${dx} ${dy}) ${artTransform}`);
       };
       const onUp = up => {
         el.releasePointerCapture(up.pointerId);
@@ -608,6 +618,7 @@
         el.removeEventListener('pointerup', onUp);
         el.classList.remove('dragging');
         if (drag.moved) {
+          state.selectedId=o.id;
           const p = svgPoint(up), dx = p.x-startPt.x, dy = p.y-startPt.y;
           applyDrag(o, origin, dx, dy);
           persistImage(); renderImage(); refreshSelected(); updateObjectList(); setStatus('Moved · select and drag again, or edit precisely in the Selected panel');
@@ -617,6 +628,7 @@
       };
       el.addEventListener('pointermove', onMove);
       el.addEventListener('pointerup', onUp);
+      el.addEventListener('pointercancel', () => { el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerup', onUp); renderImage(); }, {once:true});
     });
     return el;
   }
@@ -729,6 +741,8 @@
       if(payload.imageSource) {
         state.image.src=payload.imageSource; state.image.width=payload.imageWidth||1000; state.image.height=payload.imageHeight||1000;
         svg.setAttribute('viewBox',`0 0 ${state.image.width} ${state.image.height}`); $('imageEmpty').style.display='none';
+      } else {
+        state.image.src=null; state.image.width=0; state.image.height=0;
       }
       if(state.draw && payload.satelliteGeoJSON) { state.draw.set(payload.satelliteGeoJSON); syncSatelliteMeta(); }
       switchMode(payload.mode==='image'?'image':'satellite'); renderImage(); updateObjectList(); setStatus('Plan imported');
@@ -757,15 +771,18 @@
 
   document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>chooseTool(b.dataset.tool));
   $('clearToolBtn').onclick=clearTool; $('satelliteTab').onclick=()=>switchMode('satellite'); $('imageTab').onclick=()=>switchMode('image');
-  $('imageUpload').onchange=e=>loadImage(e.target.files?.[0]); $('calibrateBtn').onclick=startCalibration; $('locateBtn').onclick=locate; $('exportBtn').onclick=exportPlan; $('importBtn').onclick=()=>$('importInput').click(); $('importInput').onchange=e=>importPlan(e.target.files?.[0]); $('vizPromptBtn').onclick=buildVisualizationPrompt;
+  $('imageUpload').onchange=e=>{loadImage(e.target.files?.[0]);e.target.value='';}; $('calibrateBtn').onclick=startCalibration; $('locateBtn').onclick=locate; $('exportBtn').onclick=exportPlan; $('importBtn').onclick=()=>$('importInput').click(); $('importInput').onchange=e=>importPlan(e.target.files?.[0]); $('vizPromptBtn').onclick=buildVisualizationPrompt;
   $('unitSelect').onchange=e=>{ state.unit=e.target.value;store.set('plotline.unit',state.unit);refreshSelected();updateObjectList(); if(state.image.metersPerPixel)$('scaleHint').textContent=`Scale calibrated · 100 px ≈ ${lengthText(state.image.metersPerPixel*100)}`; };
   $('saveTokenBtn').onclick=()=>initMap($('tokenInput').value.trim()); $('skipTokenBtn').onclick=()=>switchMode('image'); $('changeTokenBtn').onclick=()=>{$('tokenInput').value=localStorage.getItem('plotline.mapboxToken')||'';$('tokenGate').style.display='grid';};
   $('menuBtn').onclick=()=>$('sidebar').classList.toggle('open');
   $('resetBtn').onclick=()=>{ if(!confirm('Reset the locally saved Plotline project? Export first if you want a backup.')) return; ['plotline.unit','plotline.mapObjects','plotline.mapGeoJSON','plotline.imageScale','plotline.imageObjects'].forEach(k=>localStorage.removeItem(k)); location.reload(); };
 
-  const token=localStorage.getItem('plotline.mapboxToken'); if(token){ $('tokenInput').value=token; initMap(token); } else { $('tokenGate').style.display='grid'; }
+  const token=localStorage.getItem('plotline.mapboxToken'); if(token) $('tokenInput').value=token;
   updateObjectList();
+  window.plotline = {state, $, store, svg, uid, esc, clearTool, chooseTool, renderImage, renderSvgObject, persistImage, updateObjectList, refreshSelected, selectObject, selectedObject, switchMode, setStatus, lengthText, areaText, imagePolygonArea, objectOrigin, applyDrag};
 })();
 </script>
+<link rel="stylesheet" href="studio.css" />
+<script src="studio.js"></script>
 </body>
 </html>

@@ -1,5 +1,32 @@
 # Plotline — Garden & Property Planner
 
+## Garden studio
+
+The local studio now opens in a clean illustrated 2D plan. `studio.css` and
+`studio.js` extend the original planner; publish these alongside `index.html`.
+
+- Start with garden dimensions in meters, an uploaded calibrated image, or a
+  boundary traced on the satellite map. **Use traced area in design** converts
+  satellite coordinates to a local metric plan. The satellite source is retained
+  separately, so later design edits do not modify the original tracing.
+- Select and drag plants, beds, paths, and pergolas. Arrow keys move the selected
+  object by 10 cm; Shift moves it by one meter. Duplicate and undo/redo are available.
+- Plant cards include olive, citrus, lavender, rosemary, hydrangea, and cypress.
+  The 2D canopy represents the entered mature diameter, rather than a fixed marker.
+- **3D garden** shows the same plan geometry in an orthographic scene. Drag to
+  orbit and scroll to zoom. Edit objects in 2D. Heights can be set individually in
+  meters; defaults are illustrative, not measurements inferred from imagery.
+- **Explore a sample garden** loads a 20 x 15 meter example. Replacing a design
+  through the studio can be undone until the page reloads.
+- Complete designs, including their reference images, save in this browser.
+  Export JSON for a portable backup. Storage capacity is browser-dependent.
+
+This version reconstructs a clean visual from explicit geometry. It does not
+automatically recognize boundaries, terrain elevation, buildings, or plants in
+satellite photographs. Image calibration and source imagery limit accuracy.
+The 3D renderer uses flat terrain and stylized plant forms. For garden-scale
+satellite conversion it uses a local equirectangular projection.
+
 A static, browser-only property and garden planning web app designed around a simple workflow: start from satellite imagery or a screenshot/site plan, draw to scale, then place planting areas and landscape elements.
 
 ## Current MVP
