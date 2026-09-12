@@ -60,6 +60,11 @@ If you do not want a Mapbox account, the entire planner still works in **Upload 
 
 This app deliberately has **no build step**. The repository root can be published directly.
 
+The public app is served by the `garden-planner-viz` Cloudflare Worker at
+`https://garden.viableplanet.eu/`. Its source is kept in
+`cloudflare-worker.js`. It serves the latest files from `main` with a short
+cache and removes GitHub Raw response headers that would block browser scripts.
+
 ### GitHub Pages
 
 1. Create a GitHub repository.
