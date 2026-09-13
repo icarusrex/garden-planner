@@ -525,7 +525,14 @@
     });
     layer=1.8;shadows.forEach(points=>face(points,'rgba(43,62,35,.13)'));
     ctx.lineJoin='round';ctx.lineCap='round';faces.sort((a,b)=>a.layer-b.layer||a.depth-b.depth).forEach(f=>{ctx.beginPath();f.points.forEach((p,i)=>{const v=project(p);i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y);});ctx.closePath();ctx.fillStyle=f.color;ctx.fill();if(f.stroke){ctx.strokeStyle=f.stroke;ctx.lineWidth=1;ctx.stroke();}});
-    ctx.font='600 11px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';labels.forEach(label=>{const p=project(label.point),text=label.text.length>28?label.text.slice(0,27)+'…':label.text,w=ctx.measureText(text).width+16,h=24;ctx.fillStyle='rgba(255,255,248,.88)';ctx.beginPath();ctx.roundRect(p.x-w/2,p.y-h/2,w,h,7);ctx.fill();ctx.strokeStyle='rgba(91,105,76,.34)';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle='#45533f';ctx.fillText(text,p.x,p.y+.5);});
+    ctx.font='600 11px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';const placedLabels=[];
+    labels.map(label=>({...label,anchor:project(label.point)})).sort((a,b)=>a.anchor.y-b.anchor.y).forEach(label=>{
+      const text=label.text.length>28?label.text.slice(0,27)+'…':label.text,w=ctx.measureText(text).width+16,h=24,x=Math.max(w/2+8,Math.min(W-w/2-8,label.anchor.x));let y=Math.max(54,Math.min(H-86,label.anchor.y)),attempt=0;
+      const overlaps=()=>placedLabels.some(r=>Math.abs(x-r.x)<(w+r.w)/2+5&&Math.abs(y-r.y)<h+4);
+      while(overlaps()&&attempt<10){attempt++;const step=Math.ceil(attempt/2)*28;y=Math.max(54,Math.min(H-86,label.anchor.y+(attempt%2?1:-1)*step));}
+      if(Math.hypot(x-label.anchor.x,y-label.anchor.y)>8){ctx.strokeStyle='rgba(91,105,76,.45)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(label.anchor.x,label.anchor.y);ctx.lineTo(x,y);ctx.stroke();}
+      placedLabels.push({x,y,w});ctx.fillStyle='rgba(255,255,248,.9)';ctx.beginPath();ctx.roundRect(x-w/2,y-h/2,w,h,7);ctx.fill();ctx.strokeStyle='rgba(91,105,76,.34)';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle='#45533f';ctx.fillText(text,x,y+.5);
+    });
     ctx.textAlign='left';ctx.textBaseline='alphabetic';
     ctx.fillStyle='#718266';ctx.font='11px system-ui';ctx.fillText('ORTHOGRAPHIC / DIMENSIONS PRESERVED',25,H-75);
   }
