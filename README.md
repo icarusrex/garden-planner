@@ -7,14 +7,17 @@ crop and spacing. Trees remain individual objects; grapes follow a drawn row.
 Bed patterns are clipped to the outline and use a capped representative density
 for large areas. The plan remains one editable bed, not hundreds of objects.
 
-Every object in the measured 2D design supports a rotation angle and a 90-degree
-turn. Polygon rotation preserves area and rotates planting rows with the bed.
+Every movable object in the measured 2D design supports a rotation angle and a
+90-degree turn. Polygon rotation preserves area and rotates planting rows with
+the bed. Once created, the garden boundary is a locked ground layer; retrace it
+to replace it instead of moving it accidentally.
 Paths default to 0.5 m, retain their physical width when changing units, and
 render below beds, plants, and structures regardless of creation order.
 
 The garden palette includes a hoop greenhouse and a pirate ship playground.
 The 3D view includes hoop ribs and doors, a ship hull/deck/railings/mast/sail,
-planted beds, leaf geometry, directional foliage shading, and soil texture.
+planted beds, directional foliage shading, soil texture, automatic framing to
+the actual garden boundary, and persistent bed-name labels.
 
 The local studio now opens in a clean illustrated 2D plan. `studio.css` and
 `studio.js` extend the original planner; publish these alongside `index.html`.
@@ -113,13 +116,13 @@ The plan autosaves in browser localStorage. Use **Export plan** to download a JS
 
 - Satellite mode requires a Mapbox public token.
 - Tree canopy is measured but represented as a fixed map marker in satellite mode; uploaded-image mode draws the canopy to scale.
-- Pergolas are axis-aligned north/south when first placed in satellite mode; arbitrary rotation is a next-step feature.
+- Satellite geometry must be converted to the measured design before arbitrary rotation.
 - No user accounts/cloud database yet.
 - AI images are not generated directly yet because the static app intentionally contains no secret API key.
 
 ## Logical next features
 
-1. Pergola/bed rotation handles
+1. Direct rotation handles
 2. Curved paths and path material presets
 3. Sun/shade analysis
 4. Plant library and mature spacing

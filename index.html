@@ -168,7 +168,8 @@
 
       <section class="section" id="selectedSection" style="display:none">
         <h3>Selected</h3>
-        <div class="field"><label>Name</label><input id="selectedName" /></div>
+        <div class="field"><label id="selectedNameLabel" for="selectedName">Name</label><input id="selectedName" /></div>
+        <div id="selectedNameHint" class="hint" style="display:none">This name stays with the whole planting bed in both 2D and 3D.</div>
         <div id="selectedMeasure" class="hint"></div>
         <div id="selectedPergolaFields" style="display:none">
           <div class="row" style="margin-top:8px">
@@ -376,7 +377,11 @@
 
   function handleDrawEvent(e) {
     if (e.type === 'draw.selectionchange') {
-      state.selectedId = e.features?.[0]?.id || null; refreshSelected(); updateObjectList(); return;
+      const id=e.features?.[0]?.id||null;
+      if(id&&state.satelliteObjects[id]?.kind==='property'){
+        state.selectedId=null;try{state.draw.changeMode('simple_select');}catch{}refreshSelected();updateObjectList();setStatus('Garden boundary locked · draw a new boundary if it needs replacing');return;
+      }
+      state.selectedId = id; refreshSelected(); updateObjectList(); return;
     }
     if (e.type === 'draw.create' && e.features?.[0]) {
       const f = e.features[0]; let kind = state.tool;
@@ -397,11 +402,11 @@
   }
 
   function finishMapObject(id, kind) {
-    persistMap(); state.selectedId = id;
-    try { state.draw.changeMode('simple_select',{featureIds:[id]}); } catch {}
+    persistMap(); state.selectedId = kind==='property'?null:id;
+    try { state.draw.changeMode('simple_select',kind==='property'?{}:{featureIds:[id]}); } catch {}
     state.pendingMapClick = null; state.tool = null; document.querySelectorAll('.tool').forEach(b => b.classList.remove('active'));
     $('pergolaFields').style.display='none'; $('pathFields').style.display='none'; $('irrigationFields').style.display='none'; $('accessoryFields').style.display='none'; $('treeFields').style.display='none';
-    refreshSelected(); updateObjectList(); updateSatelliteLabels(); setStatus(`${kindLabel[kind]} added · select it to edit or move`);
+    refreshSelected(); updateObjectList(); updateSatelliteLabels(); setStatus(kind==='property'?'Garden boundary added and locked':`${kindLabel[kind]} added · select it to edit or move`);
   }
 
   function syncSatelliteMeta() {
@@ -634,6 +639,12 @@
       el=document.createElementNS(ns,'polygon'); el.setAttribute('points',o.points.map(p=>`${p.x},${p.y}`).join(' ')); el.setAttribute('fill',o.kind==='property'?'rgba(93,111,133,.15)':'rgba(78,140,89,.22)'); el.setAttribute('stroke',o.kind==='property'?'#5d6f85':'#4e8c59'); el.setAttribute('stroke-width','3');
     }
     el.setAttribute('data-id',o.id); el.classList.add('svg-object'); if(o.id===state.selectedId) el.classList.add('selected'); el.setAttribute('vector-effect','non-scaling-stroke');
+    if (o.kind==='property') {
+      el.classList.add('locked');
+      el.setAttribute('pointer-events','none');
+      el.setAttribute('aria-hidden','true');
+      return el;
+    }
     el.addEventListener('pointerdown', ev => {
       if (state.tool === 'calibrate') return;
       ev.stopPropagation();
@@ -687,9 +698,12 @@
   }
   function updateObjectList() {
     const list=$('objectList'), items=currentObjects(); list.innerHTML=''; $('objectEmpty').style.display=items.length?'none':'block';
-    items.forEach(o=>{ const card=document.createElement('div'); card.className='object-card'+(o.id===state.selectedId?' selected':''); card.innerHTML=`<div class="object-title"><span>${esc(o.name)}</span><span class="swatch ${esc(o.kind)}"></span></div><div class="object-meta">${esc(o.measurement)}</div>`; card.onclick=()=>selectObject(o.id); list.appendChild(card); });
+    items.forEach(o=>{ const locked=o.kind==='property'; const card=document.createElement('div'); card.className='object-card'+(o.id===state.selectedId?' selected':'')+(locked?' locked':''); card.innerHTML=`<div class="object-title"><span>${esc(o.name)}</span><span>${locked?'Locked ':''}<span class="swatch ${esc(o.kind)}"></span></span></div><div class="object-meta">${esc(o.measurement)}${locked?' · ground layer':''}</div>`; card.onclick=()=>locked?setStatus('Garden boundary locked · use Trace boundary to replace it'):selectObject(o.id); list.appendChild(card); });
   }
   function selectObject(id) {
+    if(state.mode==='image'&&state.image.objects.find(o=>o.id===id)?.kind==='property'){
+      state.selectedId=null; renderImage(); refreshSelected(); updateObjectList(); setStatus('Garden boundary locked · use Trace boundary to replace it'); return;
+    }
     state.selectedId=id;
     if(state.mode==='image'){ renderImage(); }
     else if(state.draw){ try{state.draw.changeMode('simple_select',{featureIds:[id]});}catch{} }
@@ -704,6 +718,9 @@
     const o=selectedObject(); $('selectedSection').style.display=o?'block':'none';
     ['selectedPergolaFields','selectedPathFields','selectedIrrigationFields','selectedAccessoryFields','selectedTreeFields'].forEach(id => $(id).style.display='none');
     if(!o)return;
+    $('selectedNameLabel').textContent=o.kind==='bed'?'Bed name':'Name';
+    $('selectedName').placeholder=o.kind==='bed'?'e.g. North potato bed':'';
+    $('selectedNameHint').style.display=o.kind==='bed'?'block':'none';
     $('selectedName').value=o.name||''; $('selectedMeasure').textContent=state.mode==='image'?imageMeasurement(o):mapMeasurement(o.id);
     if(o.kind==='pergola') {
       $('selectedPergolaFields').style.display='block';
