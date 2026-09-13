@@ -6,6 +6,7 @@
   let editingCorners=false;
   let view='plan', history=[], cursor=-1, restoring=false, queued=false, panMode=false, pendingPlant=null;
   let irrigationVisible=localStorage.getItem('plotline.irrigationVisible')!=='false';
+  let labelsVisible=localStorage.getItem('plotline.labelsVisible')!=='false';
   let camera={yaw:-.55,pitch:.72,zoom:1};
   const blank='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900"><rect width="1200" height="900" fill="#e9eee4"/></svg>');
   const plants=[
@@ -146,7 +147,7 @@
   sections[5].insertAdjacentHTML('beforeend','<button class="btn" id="sampleBtn" style="width:100%;margin-top:10px">Explore a sample garden</button>');
   sections[5].insertAdjacentHTML('beforeend','<button class="btn" id="restoreReferenceBtn" style="width:100%;margin-top:10px">Restore previous image layout</button>');
   $('restoreReferenceBtn').onclick=()=>{const prior=P.store.get('plotline.previousImageProject');if(!prior){P.setStatus('No previous image layout is backed up');return;}state.image=prior;state.selectedId=null;setView('plan');};
-  $('selectedSection').insertAdjacentHTML('beforeend','<div class="field" id="heightField"><label for="objectHeight">Height (meters, for 3D)</label><input type="number" min="0.1" max="40" step="0.1" id="objectHeight" value="3"></div><button class="btn" id="duplicateBtn" style="width:100%;margin-top:10px">Duplicate selected</button>');
+  $('selectedSection').insertAdjacentHTML('beforeend','<div class="field" id="heightField"><label for="objectHeight">Height (meters, for 3D)</label><input type="number" min="0.1" max="40" step="0.1" id="objectHeight" value="3"></div><button class="btn" id="duplicateBtn" style="width:100%;margin-top:10px">Duplicate selected</button><button class="btn" id="toggleObjectLabel" style="width:100%;margin-top:6px">Hide this label</button>');
   workspace.insertAdjacentHTML('beforeend',`<div class="studio-head"><h1>A garden, taking shape.</h1><p id="gardenSummary">Plan your space. Plant something good.</p></div><div class="view-switch" role="group" aria-label="Garden view"><button id="referenceView">Reference</button><button id="planView" class="active">2D plan</button><button id="threeView">3D garden</button></div><div class="canvas-tools"><button id="panBtn" title="Pan canvas (H or Space)" aria-label="Pan canvas">✋</button><button id="selectBtn" title="Select and move (V)" aria-label="Select and move">↖</button><button id="finishBtn" title="Finish drawing (Enter)" aria-label="Finish drawing">✓</button><hr/><button id="undoBtn" title="Undo (⌘Z)" aria-label="Undo">↶</button><button id="redoBtn" title="Redo (⌘⇧Z)" aria-label="Redo">↷</button><hr/><button id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button><button id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button><button id="fitBtn" title="Fit garden" aria-label="Fit garden">⊡</button></div><div class="north"><span>↑</span>N</div><div class="studio-legend"><strong id="scaleLabel">5 m</strong></div><canvas id="threeCanvas" aria-label="3D garden. Drag to orbit, scroll to zoom. Edit objects in the 2D plan."></canvas>`);
   document.body.insertAdjacentHTML('beforeend',`<dialog id="gardenDialog" class="studio-dialog"><h2>Make room for your garden.</h2><p>Start with a measured rectangle. You can also trace an irregular boundary from a reference image.</p><div class="row"><div class="field"><label for="gardenWidth">Width, meters</label><input id="gardenWidth" type="number" min="1" max="500" value="20"/></div><div class="field"><label for="gardenDepth">Depth, meters</label><input id="gardenDepth" type="number" min="1" max="500" value="15"/></div></div><p id="replaceNote">This replaces the current design. You can undo it.</p><div class="row"><button class="btn" id="cancelGarden">Cancel</button><button class="btn primary" id="createGarden">Create garden</button></div></dialog>`);
   workspace.insertAdjacentHTML('beforeend','<div id="outlineBar" class="outline-bar" hidden><span id="outlineProgress">Click the corners in order</span><button class="btn" id="removeCorner">Undo last point</button><button class="btn primary" id="finishOutline">Finish outline</button><button class="btn" id="cancelOutline">Cancel</button></div>');
@@ -179,9 +180,10 @@
   document.querySelector('[data-tool="path"]').addEventListener('click',()=>{$('pathWidth').value=state.unit==='imperial'?(0.5/.3048).toFixed(3):'0.5';});
   ['accessoryType','selectedAccessoryType'].forEach(id=>{$(id).add(new Option('Pirate ship playground','playground'));[...$(id).options].find(o=>o.value==='greenhouse').textContent='Hoop greenhouse';});
   const accessories=[['compost','Compost bin'],['waterButt','Water butt'],['shed','Tool shed'],['greenhouse','Hoop greenhouse'],['coldFrame','Cold frame'],['bench','Bench'],['playground','Pirate ship playground']];
-  $('plantPalette').closest('.section').insertAdjacentHTML('afterend','<section class="section"><h3>04 / Garden things</h3><div class="garden-things" id="gardenThings"></div></section><section class="section layer-panel"><h3>Layers</h3><label><input id="irrigationLayer" type="checkbox"/> <span><strong>Irrigation</strong><small>Show pipes, drip lines, and sprinklers</small></span></label></section>');
+  $('plantPalette').closest('.section').insertAdjacentHTML('afterend','<section class="section"><h3>04 / Garden things</h3><div class="garden-things" id="gardenThings"></div></section><section class="section layer-panel"><h3>Layers</h3><label><input id="irrigationLayer" type="checkbox"/> <span><strong>Irrigation</strong><small>Show pipes, drip lines, and sprinklers</small></span></label><label><input id="labelsLayer" type="checkbox"/> <span><strong>Labels</strong><small>Show names and measurements</small></span></label></section>');
   accessories.forEach(([type,name])=>{const b=document.createElement('button');b.innerHTML=`<span class="garden-thing-icon ${type}"></span><span>${name}</span>`;b.onclick=()=>{if(view!=='plan')setView('plan');$('accessoryType').value=type;P.chooseTool('accessory');P.setStatus(`Click to place ${name.toLowerCase()}`);};$('gardenThings').appendChild(b);});
   $('irrigationLayer').checked=irrigationVisible;$('irrigationLayer').onchange=e=>{irrigationVisible=e.target.checked;localStorage.setItem('plotline.irrigationVisible',irrigationVisible);refresh();P.setStatus(irrigationVisible?'Irrigation layer shown':'Irrigation layer hidden');};
+  $('labelsLayer').checked=labelsVisible;$('labelsLayer').onchange=e=>{labelsVisible=e.target.checked;localStorage.setItem('plotline.labelsVisible',labelsVisible);document.body.classList.toggle('labels-hidden',!labelsVisible);if(state.mode==='image')refresh();else P.updateSatelliteLabels();P.setStatus(labelsVisible?'Labels shown':'Labels hidden');};
   function setView(next){
     if(next==='three'&&!state.image.metersPerPixel&&state.image.src){P.setStatus('Calibrate your reference image before opening a measured 3D view');return;}
     if(next!=='reference'&&state.mode==='satellite'){
@@ -261,6 +263,7 @@
     }return true;
   }
   $('duplicateBtn').onclick=()=>{const o=state.image.objects.find(o=>o.id===state.selectedId);if(!o||state.mode!=='image')return;const copy=structuredClone(o);copy.id=P.uid();copy.name+=' copy';P.applyDrag(copy,P.objectOrigin(copy),1/state.image.metersPerPixel,1/state.image.metersPerPixel);state.image.objects.push(copy);state.selectedId=copy.id;refresh();};
+  $('toggleObjectLabel').onclick=()=>{const selected=P.selectedObject();if(!selected)return;const hidden=!selected.labelHidden;if(state.mode==='image'){const o=state.image.objects.find(o=>o.id===selected.id);if(!o)return;o.labelHidden=hidden;refresh();}else{state.satelliteObjects[selected.id].labelHidden=hidden;P.persistMap();P.updateSatelliteLabels();P.refreshSelected();P.updateObjectList();enhance();}P.setStatus(hidden?`${selected.name} label hidden`:`${selected.name} label shown`);};
   $('resetBtn').onclick=()=>{if(!confirm('Clear this design? You can undo this change.'))return;state.image.objects=[];state.selectedId=null;refresh();};
   const applyOriginal=$('applySelected').onclick;
   $('applySelected').onclick=()=>{const o=P.selectedObject();if(!o)return;const fields=o.kind==='pergola'?['selectedPergolaWidth','selectedPergolaDepth']:o.kind==='tree'?['selectedTreeCanopy']:o.kind==='path'?['selectedPathWidth']:o.kind==='accessory'?['selectedAccessoryWidth','selectedAccessoryDepth']:[];if(fields.some(id=>!Number.isFinite(+$(id).value)||+$(id).value<=0)){P.setStatus('Dimensions must be greater than zero');return;}applyOriginal();};
@@ -393,7 +396,7 @@
     const rank=o=>o.kind==='property'?0:o.kind==='path'&&!o.rowPlant?1:o.kind==='bed'?2:3;
     [...state.image.objects].sort((a,b)=>rank(a)-rank(b)).forEach(o=>{const shape=svg.querySelector(`[data-id="${o.id}"]`),art=svg.querySelector(`[data-art-for="${o.id}"]`);if(shape)svg.appendChild(shape);if(art)svg.appendChild(art);if(o.point&&o.rotationDeg){const t=`rotate(${o.rotationDeg} ${o.point.x} ${o.point.y})`;shape?.setAttribute('transform',t);art?.setAttribute('transform',t);}});
     [...svg.children].filter(n=>!n.hasAttribute('data-id')&&!n.hasAttribute('data-label-for')&&!n.classList.contains('studio-art')&&['polygon','polyline','circle'].includes(n.tagName)).forEach(n=>{n.style.pointerEvents='none';svg.appendChild(n);});
-    svg.querySelectorAll('[data-label-for]').forEach(label=>{const o=state.image.objects.find(o=>o.id===label.getAttribute('data-label-for'));if(!o)return;const plot=['property','bed'].includes(o.kind);label.style.display=o.kind==='irrigation'&&!irrigationVisible?'none':view!=='reference'&&o.id!==state.selectedId&&['tree','path','irrigation'].includes(o.kind)?'none':'';label.textContent=plot?`${o.name} · ${state.image.metersPerPixel?P.areaText(P.imagePolygonArea(o.points)*state.image.metersPerPixel**2):'Set scale to calculate area'}`:o.name;svg.appendChild(label);});
+    svg.querySelectorAll('[data-label-for]').forEach(label=>{const o=state.image.objects.find(o=>o.id===label.getAttribute('data-label-for'));if(!o)return;const plot=['property','bed'].includes(o.kind),irrigationHidden=o.kind==='irrigation'&&!irrigationVisible,contextHidden=view!=='reference'&&o.id!==state.selectedId&&['tree','path','irrigation'].includes(o.kind);label.style.display=!labelsVisible||o.labelHidden||irrigationHidden||contextHidden?'none':'';label.textContent=plot?`${o.name} · ${state.image.metersPerPixel?P.areaText(P.imagePolygonArea(o.points)*state.image.metersPerPixel**2):'Set scale to calculate area'}`:o.name;svg.appendChild(label);});
     if(view!=='three'){
       const placed=[];[...svg.querySelectorAll('[data-label-for]')].filter(label=>label.style.display!=='none').forEach(label=>{
         const baseY=Number(label.getAttribute('y')),fontSize=Number.parseFloat(label.style.fontSize)||14;let attempt=0,box;
@@ -404,6 +407,7 @@
     const props=state.image.objects.filter(o=>o.kind==='property'),scale=state.image.metersPerPixel;
     $('gardenSummary').textContent=`${props.length&&scale?P.areaText(props.reduce((a,o)=>a+P.imagePolygonArea(o.points)*scale*scale,0))+' garden · ':''}${state.image.objects.filter(o=>o.kind==='tree'||o.rowPlant||(o.kind==='bed'&&o.species)).length} plantings · ${view==='three'?'3D preview':'Measured design'}`;
     const selected=state.image.objects.find(o=>o.id===state.selectedId);if(selected)$('objectHeight').value=selected.heightM||(selected.kind==='bed'?.18:species(selected).height);
+    $('toggleObjectLabel').style.display=selected&&selected.kind!=='property'?'block':'none';$('toggleObjectLabel').textContent=selected?.labelHidden?'Show this label':'Hide this label';
     $('objectRotation').value=selected?.rotationDeg||0;$('cropBedFields').hidden=selected?.kind!=='bed';if(selected?.kind==='bed'){$('bedCrop').value=selected.species||'';$('bedSpacing').value=selected.spacingM||species(selected).diameter||.5;$('bedRowAngle').value=Math.round(rowAngle(selected));}
     $('editCorners').style.display=selected?.points&&selected.kind!=='property'&&state.mode==='image'?'block':'none';
     $('editCorners').textContent=editingCorners?'Done editing corners':'Edit corners';
@@ -482,7 +486,7 @@
         {
           for(let i=0;i<o.points.length;i++){const a=o.points[i],b=o.points[(i+1)%o.points.length];limb([a.x*s,h+.02,a.y*s],[b.x*s,h+.02,b.y*s],.065,'#a18b61');}
           const c=pivot(o),xs=o.points.map(p=>p.x),ys=o.points.map(p=>p.y),area=(Math.max(...xs)-Math.min(...xs))*(Math.max(...ys)-Math.min(...ys));
-          labels.push({point:[c.x*s,h+.09,c.y*s],text:o.name||'Planting bed'});
+          if(labelsVisible&&!o.labelHidden)labels.push({point:[c.x*s,h+.09,c.y*s],text:o.name||'Planting bed'});
           for(let i=0;i<Math.min(240,area*s*s*12);i++){const p={x:Math.min(...xs)+(Math.sin(i*78.233)*43758.5453%1+1)%1*(Math.max(...xs)-Math.min(...xs)),y:Math.min(...ys)+(Math.sin(i*39.425)*24634.6345%1+1)%1*(Math.max(...ys)-Math.min(...ys))};if(inside(p,o.points))face([[p.x*s,h+.006,p.y*s],[p.x*s+.025,h+.006,p.y*s+.015],[p.x*s+.01,h+.006,p.y*s+.035]],i%2?'#8f7b58':'#c4ad86');}
         }
       }else if(o.kind==='path'&&o.rowPlant){
@@ -587,6 +591,7 @@
   new ResizeObserver(()=>{if(view==='three')draw3d();}).observe(workspace);
   // Restore the complete canvas, including its reference image, after a reload.
   const saved=P.store.get('plotline.studio',null);if(saved?.image){Object.assign(state.image,saved.image);state.image.draft=[];state.image.calibration=[];state.unit=saved.unit||state.unit;$('unitSelect').value=state.unit;}
+  document.body.classList.toggle('labels-hidden',!labelsVisible);
   if(!saved&&!localStorage.getItem('plotline.unit')){state.unit='metric';$('unitSelect').value='metric';$('pergolaWidth').value=4;$('pergolaDepth').value=3;$('treeCanopy').value=3;}
   $('pathWidth').value=state.unit==='imperial'?(0.5/.3048).toFixed(3):'0.5';
   setView(localStorage.getItem('plotline.studioView')||'plan');

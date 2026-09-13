@@ -77,6 +77,7 @@ A static, browser-only property and garden planning web app designed around a si
 - Rename, select, edit, move (satellite-drawn geometry), and delete objects
 - Imperial or metric units
 - Browser autosave
+- A global Labels layer plus per-object label visibility controls
 - JSON export + import backup
 - AI-visualization prompt builder based on the measured plan
 - Responsive desktop/mobile layout

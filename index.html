@@ -434,6 +434,10 @@
     Object.keys(state.satLabelMarkers).forEach(id => { if (!currentIds.has(id)) { state.satLabelMarkers[id].remove(); delete state.satLabelMarkers[id]; } });
     features.forEach(f => {
       const meta = state.satelliteObjects[f.id]; if (!meta) return;
+      if (localStorage.getItem('plotline.labelsVisible') === 'false' || meta.labelHidden) {
+        if (state.satLabelMarkers[f.id]) { state.satLabelMarkers[f.id].remove(); delete state.satLabelMarkers[f.id]; }
+        return;
+      }
       const center = satLabelCenter(f); if (!center) return;
       const text = (meta.kind === 'tree' && meta.species) ? `${meta.name || 'Tree'} · ${meta.species}` : (meta.name || 'Object');
       let marker = state.satLabelMarkers[f.id];
@@ -689,16 +693,16 @@
 
   // ---------- Selection / list / export ----------
   function currentObjects() {
-    if (state.mode==='image') return state.image.objects.map(o=>({id:o.id,kind:o.kind,name:o.name,measurement:imageMeasurement(o),species:o.species,rotationDeg:o.rotationDeg}));
+    if (state.mode==='image') return state.image.objects.map(o=>({id:o.id,kind:o.kind,name:o.name,measurement:imageMeasurement(o),species:o.species,rotationDeg:o.rotationDeg,labelHidden:o.labelHidden}));
     if (!state.draw) return [];
-    return state.draw.getAll().features.map(f=>{ const m=state.satelliteObjects[f.id] || {}; return {id:f.id,kind:m.kind || 'bed',name:m.name || 'Object',measurement:mapMeasurement(f.id),species:m.species,rotationDeg:m.rotationDeg}; });
+    return state.draw.getAll().features.map(f=>{ const m=state.satelliteObjects[f.id] || {}; return {id:f.id,kind:m.kind || 'bed',name:m.name || 'Object',measurement:mapMeasurement(f.id),species:m.species,rotationDeg:m.rotationDeg,labelHidden:m.labelHidden}; });
   }
   function nextName(kind, count=true) {
     const objects=currentObjects().filter(o=>o.kind===kind); return `${kindLabel[kind]} ${objects.length + (count?1:0)}`;
   }
   function updateObjectList() {
     const list=$('objectList'), items=currentObjects(); list.innerHTML=''; $('objectEmpty').style.display=items.length?'none':'block';
-    items.forEach(o=>{ const locked=o.kind==='property'; const card=document.createElement('div'); card.className='object-card'+(o.id===state.selectedId?' selected':'')+(locked?' locked':''); card.innerHTML=`<div class="object-title"><span>${esc(o.name)}</span><span>${locked?'Locked ':''}<span class="swatch ${esc(o.kind)}"></span></span></div><div class="object-meta">${esc(o.measurement)}${locked?' · ground layer':''}</div>`; card.onclick=()=>locked?setStatus('Garden boundary locked · use Trace boundary to replace it'):selectObject(o.id); list.appendChild(card); });
+    items.forEach(o=>{ const locked=o.kind==='property'; const card=document.createElement('div'); card.className='object-card'+(o.id===state.selectedId?' selected':'')+(locked?' locked':''); card.innerHTML=`<div class="object-title"><span>${esc(o.name)}</span><span>${locked?'Locked ':''}<span class="swatch ${esc(o.kind)}"></span></span></div><div class="object-meta">${esc(o.measurement)}${locked?' · ground layer':''}${o.labelHidden?' · label hidden':''}</div>`; card.onclick=()=>locked?setStatus('Garden boundary locked · use Trace boundary to replace it'):selectObject(o.id); list.appendChild(card); });
   }
   function selectObject(id) {
     if(state.mode==='image'&&state.image.objects.find(o=>o.id===id)?.kind==='property'){
@@ -847,7 +851,7 @@
 
   const token=localStorage.getItem('plotline.mapboxToken'); if(token) $('tokenInput').value=token;
   updateObjectList();
-  window.plotline = {state, $, store, svg, uid, esc, clearTool, chooseTool, renderImage, renderSvgObject, persistImage, updateObjectList, refreshSelected, selectObject, selectedObject, switchMode, setStatus, lengthText, areaText, imagePolygonArea, objectOrigin, applyDrag};
+  window.plotline = {state, $, store, svg, uid, esc, clearTool, chooseTool, renderImage, renderSvgObject, persistImage, persistMap, updateObjectList, updateSatelliteLabels, refreshSelected, selectObject, selectedObject, switchMode, setStatus, lengthText, areaText, imagePolygonArea, objectOrigin, applyDrag};
 })();
 </script>
 <link rel="stylesheet" href="studio.css" />
