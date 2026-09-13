@@ -16,6 +16,7 @@
     {name:'Guava',category:'Trees',diameter:4,height:4,color:'#4e7a4e',light:'#7e9c68',dark:'#315c3b',fruit:'#bad36a',form:'round'},
     {name:'Almond',category:'Trees',diameter:4,height:5,color:'#7f946a',light:'#d8b8bf',dark:'#576e50',fruit:'#9b7650',form:'airy'},
     {name:'Apple',category:'Trees',aliases:['apple tree','malus'],diameter:4.5,height:4.5,color:'#4f7b47',light:'#7fa05f',dark:'#315c3a',fruit:'#c94336',form:'apple'},
+    {name:'Fig',category:'Trees',aliases:['fig tree','ficus carica'],diameter:5,height:4.5,color:'#4f7650',light:'#789568',dark:'#31583d',fruit:'#68435f',form:'fig'},
     {name:'Lime',category:'Trees',aliases:['lime tree'],diameter:3,height:3.5,color:'#3f7543',light:'#6a9856',dark:'#29563a',fruit:'#9dca45',form:'round'},
     {name:'Cypress',category:'Trees',diameter:1.6,height:6,color:'#416a4d',light:'#66815b',dark:'#2d5140',form:'column'},
     {name:'Grape row',category:'Berries & vines',aliases:['grape','vine'],diameter:4,height:1.8,color:'#55794d',light:'#7c9b61',dark:'#365c42',fruit:'#6e557f',form:'vineRow'},
@@ -60,6 +61,7 @@
   function defaultRowAngle(o){let best={length:0,angle:0};for(let i=0;i<o.points.length;i++){const a=o.points[i],b=o.points[(i+1)%o.points.length],length=Math.hypot(b.x-a.x,b.y-a.y);if(length>best.length)best={length,angle:Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI};}return((best.angle%180)+180)%180;}
   const rowAngle=o=>Number.isFinite(o.rowAngleDeg)?((o.rowAngleDeg%180)+180)%180:defaultRowAngle(o);
   function inside(p,poly){let yes=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)yes=!yes;}return yes;}
+  function figLeaf2d(parent,x,y,size,rotation,color){return el('path',{d:'M0,-1 C.18,-.62 .52,-.82 .46,-.34 C.85,-.35 .92,-.08 .48,.1 C.72,.45 .5,.7 .18,.42 C.1,.72 -.1,.72 -.18,.42 C-.5,.7 -.72,.45 -.48,.1 C-.92,-.08 -.85,-.35 -.46,-.34 C-.52,-.82 -.18,-.62 0,-1Z',transform:`translate(${x} ${y}) rotate(${rotation}) scale(${size})`,fill:color},parent);}
   function bedPlants(o){
     if(o.kind!=='bed'||!o.species)return[];
     const s=state.image.metersPerPixel||.025,sp=species(o),c=pivot(o),a=rowAngle(o),poly=o.points.map(p=>turnPoint(p,c,-a));
@@ -70,6 +72,7 @@
   }
   function plantIcon(p){
     if(p.form==='column')return `<svg viewBox="0 0 50 50" aria-hidden="true"><ellipse cx="25" cy="45" rx="13" ry="3" fill="#dfe5d3"/><path d="M25 4C15 15 16 35 25 44C34 35 35 15 25 4Z" fill="${p.dark}"/><path d="M25 8C21 18 21 34 25 40C29 32 29 18 25 8Z" fill="${p.light}" opacity=".65"/></svg>`;
+    if(p.form==='fig')return `<svg viewBox="0 0 50 50" aria-hidden="true"><ellipse cx="25" cy="45" rx="18" ry="3" fill="#dfe5d3"/><path d="M25 44V27m0 8-9-8m9 4 10-8" stroke="#806044" stroke-width="3" stroke-linecap="round"/><g fill="${p.color}"><path d="M24 3c2 5 5 3 8 2-1 4 3 5 6 6-3 2-1 6 0 9-4 0-5 4-7 7-2-3-5-4-7-5-2 2-5 3-8 3 1-4-2-6-5-8 4-2 3-6 2-9 4 1 7-1 11-5Z"/><path d="M9 17c3 3 5 0 7-2 0 4 4 4 7 4-2 3 1 6 3 8-4 1-4 5-5 8-3-2-6-2-9-2-1 3-4 5-7 6 0-4-3-5-6-6 3-3 1-6 0-9 4 0 6-3 10-7Z" fill="${p.dark}"/><path d="M35 16c1 4 4 4 8 4-3 3-1 6 1 9-4 0-5 4-6 7-3-2-6-1-9 0 0-4-4-5-7-6 3-2 2-6 1-9 4 1 6-2 10-4Z" fill="${p.light}"/></g><ellipse cx="17" cy="28" rx="2.4" ry="3.2" fill="${p.fruit}"/><ellipse cx="34" cy="25" rx="2.4" ry="3.2" fill="${p.fruit}"/></svg>`;
     if(p.form==='apple')return `<svg viewBox="0 0 50 50" aria-hidden="true"><ellipse cx="25" cy="45" rx="18" ry="3" fill="#dfe5d3"/><path d="M25 44V27m0 7-8-8m8 4 8-8" stroke="#79583d" stroke-width="3" stroke-linecap="round"/><circle cx="17" cy="20" r="12" fill="${p.dark}"/><circle cx="31" cy="20" r="13" fill="${p.color}"/><circle cx="24" cy="12" r="11" fill="${p.light}"/><circle cx="14" cy="22" r="2.4" fill="${p.fruit}"/><circle cx="29" cy="13" r="2.4" fill="${p.fruit}"/><circle cx="34" cy="25" r="2.4" fill="${p.fruit}"/></svg>`;
     if(p.form==='avocado')return `<svg viewBox="0 0 50 50" aria-hidden="true"><ellipse cx="26" cy="44" rx="18" ry="3" fill="#dfe5d3"/><path d="M24 43V28M24 34l-7-7m7 4 9-9" stroke="#7a5940" stroke-width="3" stroke-linecap="round"/><ellipse cx="18" cy="21" rx="12" ry="15" fill="${p.dark}" transform="rotate(-18 18 21)"/><ellipse cx="31" cy="20" rx="13" ry="16" fill="${p.color}" transform="rotate(18 31 20)"/><ellipse cx="25" cy="13" rx="11" ry="10" fill="${p.light}"/><path d="M34 30c-4 0-5 6-1 8 5 0 6-7 1-8Z" fill="${p.fruit}"/></svg>`;
     if(p.form==='vineRow')return `<svg viewBox="0 0 50 50" aria-hidden="true"><path d="M7 40V12M43 40V12M7 18h36M7 29h36" stroke="#856a4b" stroke-width="2"/><path d="M10 18c7-8 12 8 19 0s10 5 14 0" fill="none" stroke="${p.color}" stroke-width="5"/><circle cx="18" cy="30" r="3" fill="${p.fruit}"/><circle cx="33" cy="27" r="3" fill="${p.fruit}"/></svg>`;
@@ -354,10 +357,15 @@
         }
         if(o.kind==='tree'){
           const r=(o.canopyM||3)/(state.image.metersPerPixel||.025)/2,sp=species(o);
-          const detailed=['apple','airy','groundcover','herb','stake','crop','squash','bulb','root','rosette','bramble','vineRow'].includes(sp.form);shape.setAttribute('r',r);shape.setAttribute('fill',sp.form==='airy'?sp.light:(sp.foliage||sp.dark||sp.color));shape.setAttribute('fill-opacity',sp.form==='vineRow'?0:detailed?.3:1);shape.setAttribute('stroke',o.id===state.selectedId?'#355739':'#58764b');shape.setAttribute('stroke-width',o.id===state.selectedId?2:0);
+          const detailed=['fig','apple','airy','groundcover','herb','stake','crop','squash','bulb','root','rosette','bramble','vineRow'].includes(sp.form);shape.setAttribute('r',r);shape.setAttribute('fill',sp.form==='airy'?sp.light:(sp.foliage||sp.dark||sp.color));shape.setAttribute('fill-opacity',sp.form==='vineRow'?0:detailed?.3:1);shape.setAttribute('stroke',o.id===state.selectedId?'#355739':'#58764b');shape.setAttribute('stroke-width',o.id===state.selectedId?2:0);
           shape.style.filter='drop-shadow(5px 9px 4px #39512426)';
           const art=el('g',{class:'studio-art','data-art-for':o.id,'pointer-events':'none'});
-          if(sp.form==='apple'){
+          if(sp.form==='fig'){
+            el('circle',{cx:o.point.x,cy:o.point.y,r:r*.1,fill:'#806044'},art);
+            const leaves=[[0,-.38,.34,0],[-.38,-.18,.33,-24],[.38,-.16,.35,25],[-.42,.22,.34,-52],[.4,.23,.35,48],[0,.12,.4,8],[-.08,.43,.31,170]];
+            leaves.forEach(([dx,dy,size,rot],i)=>figLeaf2d(art,o.point.x+dx*r,o.point.y+dy*r,size*r,rot,i%3===0?sp.light:i%2?sp.dark:sp.color));
+            for(let i=0;i<9;i++){const a=i*2.399,rr=r*(.2+(i%3)*.17);el('ellipse',{cx:o.point.x+Math.cos(a)*rr,cy:o.point.y+Math.sin(a)*rr,rx:r*.045,ry:r*.065,transform:`rotate(${i*37} ${o.point.x+Math.cos(a)*rr} ${o.point.y+Math.sin(a)*rr})`,fill:i%3===0?'#846178':sp.fruit},art);}
+          }else if(sp.form==='apple'){
             el('circle',{cx:o.point.x,cy:o.point.y,r:r*.1,fill:'#76543c'},art);
             const lobes=[[0,-.32,.42],[-.36,-.12,.42],[.36,-.12,.44],[-.3,.25,.44],[.3,.27,.42],[0,.1,.5]];
             lobes.forEach(([dx,dy,rr],i)=>el('circle',{cx:o.point.x+dx*r,cy:o.point.y+dy*r,r:rr*r,fill:i%3===0?sp.light:i%2?sp.dark:sp.color,opacity:.88},art));
@@ -505,7 +513,10 @@
         const type=o.irrigationType||'drip',color=type==='supply'?'#2878a6':type==='sprinkler'?'#51a6cb':'#318db5',width=type==='supply'?.09:.045;for(let i=1;i<o.points.length;i++){const a=o.points[i-1],b=o.points[i],ax=a.x*s,az=a.y*s,bx=b.x*s,bz=b.y*s,len=Math.hypot(bx-ax,bz-az);if(!len)continue;const nx=-(bz-az)/len*width,nz=(bx-ax)/len*width;face([[ax+nx,.055,az+nz],[bx+nx,.055,bz+nz],[bx-nx,.055,bz-nz],[ax-nx,.055,az-nz]],color);const spacing=type==='drip'?.5:2,count=Math.max(1,Math.floor(len/spacing));for(let j=0;j<=count;j++){const t=j/count,x=ax+(bx-ax)*t,z=az+(bz-az)*t;if(type==='drip')cylinder(x,.055,z,.035,.035,'#1d6f99',7);if(type==='sprinkler'){cylinder(x,.055,z,.045,.12,'#2878a6',7);canopy(x,.18,z,.32,.025,'#8ccde0',.32);}}}
       }else if(o.kind==='tree'){
         const x=o.point.x*s,z=o.point.y*s,sp=species(o),h=o.heightM||sp.height,r=(o.canopyM||3)/2;
-        if(sp.form==='apple'){
+        if(sp.form==='fig'){
+          const fork=h*.3;cylinder(x,0,z,.11,fork,'#806044',9);
+          for(let i=0;i<10;i++){const a=i*2.399,rr=r*(.42+(i%3)*.13),cx=x+Math.cos(a)*rr,cz=z+Math.sin(a)*rr,cy=h*(.48+(i%4)*.075);limb([x,fork*.78,z],[cx,cy-h*.05,cz],.075,'#806044');for(let j=0;j<3;j++)leaf(cx,cy+j*h*.025,cz,a+j*2.1,r*(.38+j*.05),j===1?sp.light:i%2?sp.color:sp.dark);if(i%2===0)canopy(cx+Math.cos(a)*r*.08,cy-h*.09,cz+Math.sin(a)*r*.08,.055,.075,i%4===0?'#846178':sp.fruit,.05);}
+        }else if(sp.form==='apple'){
           const fork=h*.42;box(x,0,z,.18,fork,.18,'#79583d');
           const crown=[[0,h*.72,0,.58,.25,.54],[-.42,h*.66,-.05,.45,.22,.42],[.4,h*.68,.08,.47,.23,.43],[-.22,h*.82,-.3,.4,.2,.38],[.2,h*.83,.3,.42,.2,.39]];
           crown.slice(1).forEach(([dx,y,dz])=>limb([x,fork,z],[x+dx*r,y-h*.06,z+dz*r],.085,'#76543c'));
