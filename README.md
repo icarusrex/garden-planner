@@ -74,6 +74,7 @@ A static, browser-only property and garden planning web app designed around a si
 - Paths with measured centerline length and configurable width
 - Pergolas with explicit width/depth and editable sizing
 - Trees with configurable canopy diameter
+- Species-aware fruit trees including apple, avocado, almond, grapefruit, guava, lime, and olive
 - Rename, select, edit, move (satellite-drawn geometry), and delete objects
 - Imperial or metric units
 - Browser autosave
