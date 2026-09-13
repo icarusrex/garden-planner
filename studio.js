@@ -359,6 +359,13 @@
     [...state.image.objects].sort((a,b)=>rank(a)-rank(b)).forEach(o=>{const shape=svg.querySelector(`[data-id="${o.id}"]`),art=svg.querySelector(`[data-art-for="${o.id}"]`);if(shape)svg.appendChild(shape);if(art)svg.appendChild(art);if(o.point&&o.rotationDeg){const t=`rotate(${o.rotationDeg} ${o.point.x} ${o.point.y})`;shape?.setAttribute('transform',t);art?.setAttribute('transform',t);}});
     [...svg.children].filter(n=>!n.hasAttribute('data-id')&&!n.hasAttribute('data-label-for')&&!n.classList.contains('studio-art')&&['polygon','polyline','circle'].includes(n.tagName)).forEach(n=>{n.style.pointerEvents='none';svg.appendChild(n);});
     svg.querySelectorAll('[data-label-for]').forEach(label=>{const o=state.image.objects.find(o=>o.id===label.getAttribute('data-label-for'));if(!o)return;const plot=['property','bed'].includes(o.kind);label.style.display=o.kind==='irrigation'&&!irrigationVisible?'none':view!=='reference'&&o.id!==state.selectedId&&['tree','path','irrigation'].includes(o.kind)?'none':'';label.textContent=plot?`${o.name} · ${state.image.metersPerPixel?P.areaText(P.imagePolygonArea(o.points)*state.image.metersPerPixel**2):'Set scale to calculate area'}`:o.name;svg.appendChild(label);});
+    if(view!=='three'){
+      const placed=[];[...svg.querySelectorAll('[data-label-for]')].filter(label=>label.style.display!=='none').forEach(label=>{
+        const baseY=Number(label.getAttribute('y')),fontSize=Number.parseFloat(label.style.fontSize)||14;let attempt=0,box;
+        do{const step=attempt?Math.ceil(attempt/2)*(fontSize+7)*(attempt%2?1:-1):0;label.setAttribute('y',baseY+step);box=label.getBBox();attempt++;}while(attempt<11&&placed.some(other=>box.x<other.x+other.width+5&&box.x+box.width+5>other.x&&box.y<other.y+other.height+4&&box.y+box.height+4>other.y));
+        placed.push(box);
+      });
+    }
     const props=state.image.objects.filter(o=>o.kind==='property'),scale=state.image.metersPerPixel;
     $('gardenSummary').textContent=`${props.length&&scale?P.areaText(props.reduce((a,o)=>a+P.imagePolygonArea(o.points)*scale*scale,0))+' garden · ':''}${state.image.objects.filter(o=>o.kind==='tree'||o.rowPlant||(o.kind==='bed'&&o.species)).length} plantings · ${view==='three'?'3D preview':'Measured design'}`;
     const selected=state.image.objects.find(o=>o.id===state.selectedId);if(selected)$('objectHeight').value=selected.heightM||(selected.kind==='bed'?.18:species(selected).height);
