@@ -25,39 +25,72 @@
     {name:'Lavender',category:'Crops & herbs',diameter:.8,height:.6,color:'#9588b3',light:'#b4a4ca',dark:'#6e6c91',form:'mound'},
     {name:'Rosemary',category:'Crops & herbs',diameter:1.2,height:1,color:'#6f8f70',light:'#91a984',dark:'#4e715c',form:'mound'},
     {name:'Hydrangea',category:'Crops & herbs',diameter:1.5,height:1.2,color:'#b790a6',light:'#d0b1bf',dark:'#866f91',foliage:'#587652',form:'flower'},
-    {name:'Tomatoes',category:'Crops & herbs',aliases:['tomato'],diameter:.7,height:1.6,color:'#56804d',light:'#7da264',dark:'#38603f',fruit:'#c94c3d',form:'stake'},
+    {name:'Spinach',category:'Crops & herbs',diameter:.28,height:.25,color:'#477a48',light:'#73a05d',dark:'#2f5c37',form:'rosette'},
+    {name:'Beetroot',category:'Crops & herbs',aliases:['beet','beets'],diameter:.22,height:.35,color:'#6f8b55',light:'#94aa6c',dark:'#4d6843',fruit:'#823b56',form:'root'},
+    {name:'Portuguese tall kale',category:'Crops & herbs',aliases:['couve galega','galega','portuguese kale'],diameter:.65,rowSpacing:.8,height:1.8,color:'#557e57',light:'#80a274',dark:'#355d40',form:'tallBrassica'},
+    {name:'Tomatoes',category:'Crops & herbs',aliases:['tomato'],diameter:.7,rowSpacing:.9,height:1.6,color:'#56804d',light:'#7da264',dark:'#38603f',fruit:'#c94c3d',form:'stake'},
+    {name:'Basil',category:'Crops & herbs',diameter:.3,height:.45,color:'#4f8452',light:'#78a869',dark:'#32633b',form:'herb'},
     {name:'Peppers',category:'Crops & herbs',aliases:['pepper'],diameter:.55,height:.8,color:'#527d4c',light:'#78a05e',dark:'#365f3e',fruit:'#c9573e',form:'crop'},
+    {name:'Sweet peppers',category:'Crops & herbs',aliases:['bell pepper','capsicum'],diameter:.55,height:.8,color:'#557e4e',light:'#7da262',dark:'#396040',fruit:'#d98b35',form:'crop'},
+    {name:'Chilli peppers',category:'Crops & herbs',aliases:['chilli','chili pepper'],diameter:.45,height:.75,color:'#4e794a',light:'#74a05d',dark:'#335d3d',fruit:'#b93632',form:'crop'},
+    {name:'Peas',category:'Crops & herbs',aliases:['pea'],diameter:.25,rowSpacing:.75,height:1.6,color:'#5d8754',light:'#8aab70',dark:'#3d6542',fruit:'#76a657',form:'climber'},
+    {name:'Cucumbers',category:'Crops & herbs',aliases:['cucumber'],diameter:.55,rowSpacing:1.1,height:1.7,color:'#4f7e4c',light:'#78a263',dark:'#315e3c',fruit:'#4f8747',form:'climber'},
+    {name:'Climbing beans',category:'Crops & herbs',aliases:['runner bean','pole bean'],diameter:.35,rowSpacing:.9,height:2,color:'#587f4e',light:'#84a568',dark:'#3a6140',fruit:'#72964d',form:'climber'},
     {name:'Courgettes',category:'Crops & herbs',aliases:['courgette','zucchini'],diameter:1.2,height:.6,color:'#58824c',light:'#83a965',dark:'#39633e',fruit:'#467345',form:'squash'},
+    {name:'Squash',category:'Crops & herbs',aliases:['pumpkin','winter squash'],diameter:1.5,height:.55,color:'#5e854d',light:'#8aaa65',dark:'#3e643d',fruit:'#d88a39',form:'squash'},
     {name:'Onions',category:'Crops & herbs',aliases:['onion'],diameter:.18,height:.45,color:'#75925d',light:'#a8bb7c',dark:'#587348',form:'bulb'},
     {name:'Garlic',category:'Crops & herbs',diameter:.16,height:.5,color:'#6f8e5e',light:'#a1b67e',dark:'#506e49',form:'bulb'},
     {name:'Brassicas',category:'Crops & herbs',aliases:['cabbage','broccoli','cauliflower'],diameter:.65,height:.6,color:'#5d7f5d',light:'#88a17c',dark:'#405f49',form:'rosette'},
     {name:'Carrots',category:'Crops & herbs',aliases:['carrot'],diameter:.18,height:.35,color:'#699158',light:'#92af72',dark:'#4d7048',fruit:'#d8793b',form:'root'},
     {name:'Salads',category:'Crops & herbs',aliases:['lettuce','salad'],diameter:.35,height:.25,color:'#73a35f',light:'#a0c27e',dark:'#527c4f',form:'rosette'},
     {name:'Potatoes',category:'Crops & herbs',aliases:['potato'],diameter:.65,height:.65,color:'#678359',light:'#8fa675',dark:'#486747',form:'crop'},
+    {name:'Autumn greens',category:'Crops & herbs',aliases:['autumn crop','winter greens'],diameter:.4,height:.4,color:'#587c57',light:'#83a178',dark:'#3b5f43',form:'rosette'},
     {name:'Dry beans',category:'Crops & herbs',aliases:['dry bean','bean'],diameter:.45,height:1.8,color:'#5c8051',light:'#83a36a',dark:'#3f6241',form:'stake'},
     {name:'Sweet potatoes',category:'Crops & herbs',aliases:['sweet potato'],diameter:.9,height:.3,color:'#688d58',light:'#91ad70',dark:'#486b47',form:'groundcover'},
-    {name:'Fava / chickpea',category:'Crops & herbs',aliases:['fava','broad bean','chickpea'],diameter:.5,height:1.2,color:'#668757',light:'#8ba66e',dark:'#476745',form:'crop'}
+    {name:'Favas',category:'Crops & herbs',aliases:['fava','broad bean'],diameter:.45,height:1.3,color:'#638654',light:'#8da76d',dark:'#43663f',fruit:'#78965a',form:'crop'},
+    {name:'Chickpeas',category:'Crops & herbs',aliases:['chickpea','garbanzo'],diameter:.35,height:.55,color:'#6d8759',light:'#96a972',dark:'#4a6743',fruit:'#b7a36b',form:'crop'},
+    {name:'Fava / chickpea',category:'Crops & herbs',aliases:['fava / chickpea'],diameter:.5,height:1.2,color:'#668757',light:'#8ba66e',dark:'#476745',form:'crop',legacy:true}
   ];
   const el=(tag,attrs={},parent)=>{const e=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));if(parent)parent.appendChild(e);return e;};
   function species(o){const name=(o.species||'').toLowerCase(),match=plants.map(p=>({p,score:[p.name,...(p.aliases||[])].reduce((best,key)=>name.includes(key.toLowerCase())?Math.max(best,key.length):best,0)})).filter(x=>x.score).sort((a,b)=>b.score-a.score)[0];return match?.p||{color:'#5f8052',light:'#809a69',dark:'#456744',height:3,name:'Tree',form:'round'};}
   const pivot=o=>o.point||o.center||{x:o.points.reduce((v,p)=>v+p.x,0)/o.points.length,y:o.points.reduce((v,p)=>v+p.y,0)/o.points.length};
   function turnPoint(p,c,angle){const a=angle*Math.PI/180,dx=p.x-c.x,dy=p.y-c.y;return{x:c.x+dx*Math.cos(a)-dy*Math.sin(a),y:c.y+dx*Math.sin(a)+dy*Math.cos(a)};}
+  function defaultRowAngle(o){let best={length:0,angle:0};for(let i=0;i<o.points.length;i++){const a=o.points[i],b=o.points[(i+1)%o.points.length],length=Math.hypot(b.x-a.x,b.y-a.y);if(length>best.length)best={length,angle:Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI};}return((best.angle%180)+180)%180;}
+  const rowAngle=o=>Number.isFinite(o.rowAngleDeg)?((o.rowAngleDeg%180)+180)%180:defaultRowAngle(o);
   function inside(p,poly){let yes=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)yes=!yes;}return yes;}
   function bedPlants(o){
     if(o.kind!=='bed'||!o.species)return[];
-    const s=state.image.metersPerPixel||.025,sp=species(o),c=pivot(o),a=o.rotationDeg||0,poly=o.points.map(p=>turnPoint(p,c,-a));
-    const xs=poly.map(p=>p.x),ys=poly.map(p=>p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
-    const step=Math.max((o.spacingM||sp.diameter)/s,Math.sqrt((maxX-minX)*(maxY-minY)/220)),result=[];
-    for(let y=minY+step/2;y<maxY;y+=step)for(let x=minX+step/2;x<maxX;x+=step){const p={x,y};if(inside(p,poly))result.push({kind:'tree',species:o.species,point:turnPoint(p,c,a),canopyM:Math.min(sp.diameter,step*s*.85),heightM:sp.height,baseHeight:o.heightM||.18,rotationDeg:a,crop:true});}
+    const s=state.image.metersPerPixel||.025,sp=species(o),c=pivot(o),a=rowAngle(o),poly=o.points.map(p=>turnPoint(p,c,-a));
+    const xs=poly.map(p=>p.x),ys=poly.map(p=>p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),spacing=o.spacingM||sp.diameter;
+    let stepX=spacing/s,stepY=(o.rowSpacingM||sp.rowSpacing||spacing)/s;const estimate=(maxX-minX)*(maxY-minY)/(stepX*stepY),cap=sp.form==='climber'?120:sp.form==='tallBrassica'?160:220;if(estimate>cap){const factor=Math.sqrt(estimate/cap);stepX*=factor;stepY*=factor;}const result=[];
+    for(let y=minY+stepY/2;y<maxY;y+=stepY)for(let x=minX+stepX/2;x<maxX;x+=stepX){const p={x,y};if(inside(p,poly))result.push({kind:'tree',species:o.species,point:turnPoint(p,c,a),canopyM:Math.min(sp.diameter,stepX*s*.85),heightM:sp.height,baseHeight:o.heightM||.18,rotationDeg:a,crop:true});}
     return result;
   }
   function plantIcon(p){
     if(p.form==='column')return `<svg viewBox="0 0 50 50" aria-hidden="true"><ellipse cx="25" cy="45" rx="13" ry="3" fill="#dfe5d3"/><path d="M25 4C15 15 16 35 25 44C34 35 35 15 25 4Z" fill="${p.dark}"/><path d="M25 8C21 18 21 34 25 40C29 32 29 18 25 8Z" fill="${p.light}" opacity=".65"/></svg>`;
     if(p.form==='avocado')return `<svg viewBox="0 0 50 50" aria-hidden="true"><ellipse cx="26" cy="44" rx="18" ry="3" fill="#dfe5d3"/><path d="M24 43V28M24 34l-7-7m7 4 9-9" stroke="#7a5940" stroke-width="3" stroke-linecap="round"/><ellipse cx="18" cy="21" rx="12" ry="15" fill="${p.dark}" transform="rotate(-18 18 21)"/><ellipse cx="31" cy="20" rx="13" ry="16" fill="${p.color}" transform="rotate(18 31 20)"/><ellipse cx="25" cy="13" rx="11" ry="10" fill="${p.light}"/><path d="M34 30c-4 0-5 6-1 8 5 0 6-7 1-8Z" fill="${p.fruit}"/></svg>`;
     if(p.form==='vineRow')return `<svg viewBox="0 0 50 50" aria-hidden="true"><path d="M7 40V12M43 40V12M7 18h36M7 29h36" stroke="#856a4b" stroke-width="2"/><path d="M10 18c7-8 12 8 19 0s10 5 14 0" fill="none" stroke="${p.color}" stroke-width="5"/><circle cx="18" cy="30" r="3" fill="${p.fruit}"/><circle cx="33" cy="27" r="3" fill="${p.fruit}"/></svg>`;
+    if(p.form==='tallBrassica')return `<svg viewBox="0 0 50 50" aria-hidden="true"><ellipse cx="25" cy="45" rx="13" ry="3" fill="#dfe5d3"/><path d="M25 44V9" stroke="#68764a" stroke-width="4"/><ellipse cx="16" cy="29" rx="11" ry="7" fill="${p.color}" transform="rotate(25 16 29)"/><ellipse cx="34" cy="24" rx="11" ry="7" fill="${p.light}" transform="rotate(-25 34 24)"/><ellipse cx="18" cy="17" rx="9" ry="6" fill="${p.light}" transform="rotate(20 18 17)"/><ellipse cx="31" cy="13" rx="9" ry="6" fill="${p.color}" transform="rotate(-20 31 13)"/></svg>`;
+    if(p.form==='climber')return `<svg viewBox="0 0 50 50" aria-hidden="true"><path d="M13 44V8M37 44V8M13 17h24M13 30h24" stroke="#886d4e" stroke-width="2"/><path d="M18 43c18-8-8-17 15-30" fill="none" stroke="${p.dark}" stroke-width="3"/><circle cx="18" cy="29" r="7" fill="${p.light}"/><circle cx="31" cy="20" r="7" fill="${p.color}"/>${p.fruit?`<ellipse cx="27" cy="34" rx="2.5" ry="6" fill="${p.fruit}"/>`:''}</svg>`;
     if(['stake','bramble'].includes(p.form))return `<svg viewBox="0 0 50 50" aria-hidden="true"><path d="M25 45V7" stroke="#826848" stroke-width="2"/><circle cx="18" cy="20" r="9" fill="${p.light}"/><circle cx="31" cy="27" r="10" fill="${p.color}"/><circle cx="18" cy="30" r="3" fill="${p.fruit||p.dark}"/><circle cx="32" cy="18" r="3" fill="${p.fruit||p.dark}"/></svg>`;
     if(['groundcover','herb','bulb','root','rosette','squash','crop'].includes(p.form))return `<svg viewBox="0 0 50 50" aria-hidden="true"><ellipse cx="25" cy="43" rx="16" ry="3" fill="#dfe5d3"/>${[0,1,2,3,4,5].map(i=>`<ellipse cx="25" cy="25" rx="6" ry="17" fill="${i%2?p.light:p.color}" transform="rotate(${i*60} 25 25)" opacity=".88"/>`).join('')}${p.fruit?`<circle cx="31" cy="30" r="3" fill="${p.fruit}"/>`:''}</svg>`;
     return `<svg viewBox="0 0 50 50" aria-hidden="true"><ellipse cx="27" cy="42" rx="19" ry="4" fill="#dfe5d3"/><circle cx="24" cy="23" r="17" fill="${p.color}"/><circle cx="17" cy="18" r="9" fill="${p.light}" opacity=".8"/><circle cx="32" cy="21" r="10" fill="${p.dark}" opacity=".7"/>${p.fruit?`<circle cx="15" cy="25" r="2" fill="${p.fruit}"/><circle cx="30" cy="14" r="2" fill="${p.fruit}"/>`:''}</svg>`;
+  }
+  function drawCrop2d(parent,p,sp,r){
+    const x=p.point.x,y=p.point.y;
+    if(sp.form==='climber'){
+      const g=el('g',{transform:`rotate(${p.rotationDeg||0} ${x} ${y})`},parent);el('line',{x1:x-r*.72,y1:y,x2:x+r*.72,y2:y,stroke:'#80694a','stroke-width':Math.max(1,r*.09)},g);for(let i=-1;i<=1;i++){el('ellipse',{cx:x+i*r*.38,cy:y-r*.18,rx:r*.34,ry:r*.2,fill:i%2?sp.light:sp.color,transform:`rotate(${i*24} ${x+i*r*.38} ${y-r*.18})`},g);el('ellipse',{cx:x+i*r*.38,cy:y+r*.18,rx:r*.34,ry:r*.2,fill:i%2?sp.color:sp.light,transform:`rotate(${-i*24} ${x+i*r*.38} ${y+r*.18})`},g);}if(sp.fruit)el('ellipse',{cx:x+r*.16,cy:y,rx:r*.08,ry:r*.25,fill:sp.fruit},g);return;
+    }
+    if(sp.form==='tallBrassica'){
+      for(let i=0;i<7;i++){const a=i*Math.PI*2/7;el('ellipse',{cx:x+Math.cos(a)*r*.25,cy:y+Math.sin(a)*r*.25,rx:r*.5,ry:r*.23,fill:i%2?sp.light:sp.color,transform:`rotate(${i*51} ${x+Math.cos(a)*r*.25} ${y+Math.sin(a)*r*.25})`},parent);}el('circle',{cx:x,cy:y,r:r*.12,fill:'#69764a'},parent);return;
+    }
+    if(['root','bulb'].includes(sp.form)){
+      for(let i=0;i<6;i++)el('ellipse',{cx:x,cy:y-r*.18,rx:r*.12,ry:r*.48,fill:i%2?sp.light:sp.color,transform:`rotate(${i*60} ${x} ${y})`},parent);if(sp.fruit)el('circle',{cx:x,cy:y,r:r*.2,fill:sp.fruit},parent);return;
+    }
+    if(sp.form==='squash'){
+      for(let i=0;i<7;i++)el('ellipse',{cx:x,cy:y-r*.22,rx:r*.28,ry:r*.55,fill:i%2?sp.light:sp.color,transform:`rotate(${i*51} ${x} ${y})`,opacity:.9},parent);if(sp.fruit)el('ellipse',{cx:x+r*.28,cy:y+r*.12,rx:r*.12,ry:r*.25,fill:sp.fruit,transform:`rotate(45 ${x+r*.28} ${y+r*.12})`},parent);return;
+    }
+    const petals=['rosette','groundcover'].includes(sp.form)?7:5;for(let i=0;i<petals;i++){const a=i*2*Math.PI/petals;el('ellipse',{cx:x+Math.cos(a)*r*.25,cy:y+Math.sin(a)*r*.25,rx:r*.5,ry:r*.3,fill:i%2?sp.light:sp.color,transform:`rotate(${i*360/petals} ${x} ${y})`},parent);}if(sp.fruit)el('circle',{cx:x+r*.2,cy:y+r*.12,r:r*.1,fill:sp.fruit},parent);
   }
   function snapshot(){return JSON.stringify({image:state.image,unit:state.unit});}
   function track(){
@@ -108,7 +141,7 @@
   sections[0].querySelector('h3').textContent='01 / Your starting point';
   sections[0].insertAdjacentHTML('beforeend','<button class="btn primary" id="traceBtn" style="width:100%;margin-top:10px">Use traced area in design →</button><div class="dimension-note">Trace the boundary first. Satellite coordinates set the scale; uploaded images need calibration.</div><button class="btn" id="blankBtn" style="width:100%;margin-top:10px">Set garden dimensions</button>');
   sections[1].querySelector('h3').textContent='02 / Shape your space';
-  sections[1].insertAdjacentHTML('afterend','<section class="section"><h3>03 / Bring it to life</h3><label class="plant-filter-label" for="plantCategory">Plant group</label><select id="plantCategory" class="plant-filter"><option>Trees</option><option>Berries &amp; vines</option><option>Crops &amp; herbs</option></select><div class="plant-palette" id="plantPalette"></div><div class="crop-rotation"><strong>Five-stage crop rotation</strong><span>Potato → dry bean → sweet potato → fava / chickpea → potato</span></div><div class="hint">Choose a plant, then click to place. Sizes show mature spread or row length. Drag any object to move it.</div></section>');
+  sections[1].insertAdjacentHTML('afterend','<section class="section"><h3>03 / Bring it to life</h3><label class="plant-filter-label" for="plantCategory">Plant group</label><select id="plantCategory" class="plant-filter"><option>Trees</option><option>Berries &amp; vines</option><option>Crops &amp; herbs</option></select><div class="plant-palette" id="plantPalette"></div><div class="crop-rotation"><strong>Five-stage crop rotation</strong><span>Potato → dry bean → sweet potato → fava / chickpea → potato</span></div><div class="crop-rotation succession"><strong>Planting sequences</strong><span>Tomatoes + basil + peppers · Peas → cucumbers / climbing beans · Courgettes + squash + peppers · Potatoes → autumn greens · Sweet potatoes → favas · Dry beans / chickpeas</span></div><div class="hint">Choose a plant, then click to place. Sizes show mature spread or row length. Drag any object to move it.</div></section>');
   sections[4].style.display='none';
   sections[5].insertAdjacentHTML('beforeend','<button class="btn" id="sampleBtn" style="width:100%;margin-top:10px">Explore a sample garden</button>');
   sections[5].insertAdjacentHTML('beforeend','<button class="btn" id="restoreReferenceBtn" style="width:100%;margin-top:10px">Restore previous image layout</button>');
@@ -124,7 +157,7 @@
   $('cancelOutline').onclick=()=>{pendingPlant=null;P.clearTool();P.setStatus('Drawing cancelled');};
   function renderPlantPalette(){
     const group=$('plantCategory').value,palette=$('plantPalette');palette.replaceChildren();
-    plants.filter(p=>p.category===group).forEach(p=>{
+    plants.filter(p=>p.category===group&&!p.legacy).forEach(p=>{
       const row=p.form==='vineRow',measure=row?'row length':'mature spread',b=document.createElement('button');
       b.title=p.category!=='Trees'&&!row?`Draw a ${p.name.toLowerCase()} bed`:`Place ${p.name}, ${p.diameter} m ${measure}`;b.innerHTML=`${plantIcon(p)}<span>${p.name}</span>`;
       b.onclick=()=>{if(view!=='plan')setView('plan');pendingPlant=p;if(row){$('pathWidth').value=state.unit==='imperial'?(.8/.3048).toFixed(1):.8;P.chooseTool('path');P.setStatus('Click points along the grape row, then press Enter or Finish');return;}$('treeCanopy').value=state.unit==='imperial'?p.diameter/0.3048:p.diameter;$('treeSpecies').value=p.name;$('treeCanopy').closest('.field').querySelector('label').textContent='Mature canopy diameter';P.chooseTool('tree');P.setStatus(`Click to place ${p.name.toLowerCase()} · ${P.lengthText(p.diameter)} ${measure}`);};palette.appendChild(b);
@@ -133,13 +166,15 @@
   $('plantCategory').onchange=renderPlantPalette;renderPlantPalette();
   $('plantPalette').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const p=plants.find(p=>p.name===b.querySelector('span')?.textContent);if(p&&p.category!=='Trees'&&p.form!=='vineRow'){pendingPlant=p;P.chooseTool('bed');P.setStatus(`Draw the ${p.name.toLowerCase()} bed · click its corners, then Finish outline`);}});
   $('plantPalette').closest('.section').querySelector('.hint').textContent='Draw crop and herb beds as polygons. Place trees individually and draw grapes along a row.';
-  $('selectedSection').insertAdjacentHTML('beforeend','<div class="field"><label for="objectRotation">Rotation (°)</label><input id="objectRotation" type="number" step="5" value="0"><button class="btn" id="quarterTurn">Rotate 90°</button></div><div id="cropBedFields"><div class="field"><label for="bedCrop">Bed crop</label><select id="bedCrop"><option value="">Unplanted bed</option></select></div><div class="field"><label for="bedSpacing">Plant spacing (meters)</label><input id="bedSpacing" type="number" min="0.1" max="5" step="0.05"></div><small>Large beds show a representative planting pattern.</small></div>');
-  plants.filter(p=>p.category!=='Trees'&&p.form!=='vineRow').forEach(p=>$('bedCrop').add(new Option(p.name,p.name)));
+  $('selectedSection').insertAdjacentHTML('beforeend','<div class="field"><label for="objectRotation">Object rotation (°)</label><input id="objectRotation" type="number" step="5" value="0"><button class="btn" id="quarterTurn">Rotate object 90°</button></div><div id="cropBedFields"><div class="field"><label for="bedCrop">Bed crop</label><select id="bedCrop"><option value="">Unplanted bed</option></select></div><div class="field"><label for="bedSpacing">Plant spacing (meters)</label><input id="bedSpacing" type="number" min="0.1" max="5" step="0.05"></div><div class="field"><label for="bedRowAngle">Planting row angle (°)</label><input id="bedRowAngle" type="number" min="0" max="179" step="5"><div class="row row-turns"><button class="btn" id="rowLeft" type="button">Turn rows 15° left</button><button class="btn" id="rowRight" type="button">Turn rows 15° right</button></div></div><small>Row angle rotates the planting pattern inside the bed. 0° runs left to right; 90° runs top to bottom.</small></div>');
+  plants.filter(p=>p.category!=='Trees'&&p.form!=='vineRow'&&!p.legacy).forEach(p=>$('bedCrop').add(new Option(p.name,p.name)));
   $('selectedPergolaRotation').closest('.field').hidden=true;
   function rotateSelected(value){const o=P.selectedObject();if(!o||state.mode!=='image'||!Number.isFinite(value))return;const angle=((value%360)+360)%360;if(o.points){const c=pivot(o);o.points=o.points.map(p=>turnPoint(p,c,angle-(o.rotationDeg||0)));}o.rotationDeg=angle;refresh();}
   $('objectRotation').onchange=e=>rotateSelected(+e.target.value);$('quarterTurn').onclick=()=>rotateSelected((P.selectedObject()?.rotationDeg||0)+90);
   $('bedCrop').onchange=e=>{const o=P.selectedObject();if(o?.kind!=='bed')return;o.species=e.target.value;o.spacingM=species(o).diameter||.5;if(o.species)o.name=o.species+' bed';refresh();};
   $('bedSpacing').onchange=e=>{const o=P.selectedObject(),v=+e.target.value;if(o?.kind==='bed'&&v>=.1&&v<=5){o.spacingM=v;refresh();}};
+  function setRowAngle(value){const o=P.selectedObject();if(o?.kind!=='bed'||!Number.isFinite(value))return;o.rowAngleDeg=((value%180)+180)%180;refresh();P.setStatus(`Planting rows aligned at ${Math.round(o.rowAngleDeg)}°`);}
+  $('bedRowAngle').onchange=e=>setRowAngle(+e.target.value);$('rowLeft').onclick=()=>{const o=P.selectedObject();if(o?.kind==='bed')setRowAngle(rowAngle(o)-15);};$('rowRight').onclick=()=>{const o=P.selectedObject();if(o?.kind==='bed')setRowAngle(rowAngle(o)+15);};
   ['pathWidth','selectedPathWidth'].forEach(id=>{$(id).min='0.1';$(id).step='0.1';});
   document.querySelector('[data-tool="path"]').addEventListener('click',()=>{$('pathWidth').value=state.unit==='imperial'?(0.5/.3048).toFixed(3):'0.5';});
   ['accessoryType','selectedAccessoryType'].forEach(id=>{$(id).add(new Option('Pirate ship playground','playground'));[...$(id).options].find(o=>o.value==='greenhouse').textContent='Hoop greenhouse';});
@@ -283,7 +318,7 @@
           const dims=el('g',{class:'studio-art','pointer-events':'none'},svg);
           o.points.forEach((p,i)=>{const q=o.points[(i+1)%o.points.length],length=Math.hypot(q.x-p.x,q.y-p.y)*(state.image.metersPerPixel||0);if(length<1)return;const t=el('text',{x:(p.x+q.x)/2,y:(p.y+q.y)/2-12,'text-anchor':'middle',fill:'#6b805a','font-size':Math.max(state.image.width*.011,12)},dims);t.textContent=P.lengthText(length);});
         }
-        if(o.kind==='bed'){shape.setAttribute('fill','url(#soil)');shape.setAttribute('stroke','#9a966e');shape.setAttribute('stroke-width','2');if(o.species){const art=el('g',{class:'studio-art','data-art-for':o.id,'pointer-events':'none'}),clip=el('clipPath',{id:'bed-'+o.id},defs);el('polygon',{points:o.points.map(p=>`${p.x},${p.y}`).join(' ')},clip);art.setAttribute('clip-path',`url(#bed-${o.id})`);for(const p of bedPlants(o)){const sp=species(p),r=p.canopyM/(state.image.metersPerPixel||.025)/2;for(let i=0;i<5;i++){const a=i*2.4;el('ellipse',{cx:p.point.x+Math.cos(a)*r*.3,cy:p.point.y+Math.sin(a)*r*.3,rx:r*.55,ry:r*.35,fill:i%2?sp.light:sp.color,transform:`rotate(${i*72} ${p.point.x} ${p.point.y})`},art);}}shape.after(art);}}
+        if(o.kind==='bed'){shape.setAttribute('fill','url(#soil)');shape.setAttribute('stroke','#9a966e');shape.setAttribute('stroke-width','2');if(o.species){const art=el('g',{class:'studio-art','data-art-for':o.id,'pointer-events':'none'}),clip=el('clipPath',{id:'bed-'+o.id},defs);el('polygon',{points:o.points.map(p=>`${p.x},${p.y}`).join(' ')},clip);art.setAttribute('clip-path',`url(#bed-${o.id})`);for(const p of bedPlants(o)){const sp=species(p),r=p.canopyM/(state.image.metersPerPixel||.025)/2;drawCrop2d(art,p,sp,r);}shape.after(art);}}
         if(o.kind==='path'&&o.rowPlant){
           shape.setAttribute('stroke','transparent');shape.removeAttribute('vector-effect');
           const sp=species(o),art=el('g',{class:'studio-art','data-art-for':o.id,'pointer-events':'none'}),scale=state.image.metersPerPixel||.025,rowWidth=(o.widthM||.8)/scale;
@@ -369,7 +404,7 @@
     const props=state.image.objects.filter(o=>o.kind==='property'),scale=state.image.metersPerPixel;
     $('gardenSummary').textContent=`${props.length&&scale?P.areaText(props.reduce((a,o)=>a+P.imagePolygonArea(o.points)*scale*scale,0))+' garden · ':''}${state.image.objects.filter(o=>o.kind==='tree'||o.rowPlant||(o.kind==='bed'&&o.species)).length} plantings · ${view==='three'?'3D preview':'Measured design'}`;
     const selected=state.image.objects.find(o=>o.id===state.selectedId);if(selected)$('objectHeight').value=selected.heightM||(selected.kind==='bed'?.18:species(selected).height);
-    $('objectRotation').value=selected?.rotationDeg||0;$('cropBedFields').hidden=selected?.kind!=='bed';if(selected?.kind==='bed'){$('bedCrop').value=selected.species||'';$('bedSpacing').value=selected.spacingM||species(selected).diameter||.5;}
+    $('objectRotation').value=selected?.rotationDeg||0;$('cropBedFields').hidden=selected?.kind!=='bed';if(selected?.kind==='bed'){$('bedCrop').value=selected.species||'';$('bedSpacing').value=selected.spacingM||species(selected).diameter||.5;$('bedRowAngle').value=Math.round(rowAngle(selected));}
     $('editCorners').style.display=selected?.points&&selected.kind!=='property'&&state.mode==='image'?'block':'none';
     $('editCorners').textContent=editingCorners?'Done editing corners':'Edit corners';
     if(editingCorners&&selected?.points&&!state.tool&&view!=='three'){
@@ -478,6 +513,10 @@
           for(let i=0;i<7;i++){const a=i*2.36,rr=r*(.08+(i%3)*.22),cx=x+Math.cos(a)*rr,cz=z+Math.sin(a)*rr,cy=h*(.32+(i%2)*.08);canopy(cx,cy,cz,r*.34,h*.3,sp.foliage,r*.3);canopy(cx,cy+h*.18,cz,r*.12,h*.1,i%3===0?sp.light:sp.color,r*.12);}
         }else if(sp.form==='bramble'){
           for(let i=0;i<7;i++){const a=i*2.2,rr=r*(.08+(i%3)*.2),cx=x+Math.cos(a)*rr,cz=z+Math.sin(a)*rr,cy=h*(.4+(i%3)*.15);limb([x,.05,z],[cx,cy,cz],.035,'#765844');canopy(cx,cy,cz,r*.24,h*.15,i%2?sp.light:sp.color,r*.2);canopy(cx+r*.08,cy-h*.08,cz,.035,.045,sp.fruit,.03);}
+        }else if(sp.form==='tallBrassica'){
+          cylinder(x,0,z,.035,h*.88,'#6d7047',7);for(let i=0;i<9;i++){const a=i*2.399,cy=h*(.22+i*.065);leaf(x,cy,z,a,r*(.5+(i%3)*.08),i%2?sp.light:sp.color);}canopy(x,h*.9,z,r*.24,h*.08,sp.light,r*.22);
+        }else if(sp.form==='climber'){
+          box(x,0,z,.024,h,.024,'#80684b');limb([x-r*.55,h*.42,z],[x+r*.55,h*.42,z],.018,'#80684b');limb([x-r*.55,h*.74,z],[x+r*.55,h*.74,z],.018,'#80684b');for(let i=0;i<6;i++){const side=i%2?1:-1,cy=h*(.24+i*.115),cx=x+side*r*.16;canopy(cx,cy,z,r*.55,h*.075,i%3===0?sp.light:sp.color,r*.3);if(sp.fruit&&i%3===1)canopy(cx+side*r*.18,cy-h*.05,z+r*.05,.028,.07,sp.fruit,.022);}
         }else if(sp.form==='stake'){
           box(x,0,z,.055,h,.055,'#80684b');for(let i=0;i<7;i++){const a=i*2.2,cy=h*(.25+i*.09),cx=x+Math.cos(a)*r*.3,cz=z+Math.sin(a)*r*.3;canopy(cx,cy,cz,r*.25,h*.1,i%2?sp.light:sp.color,r*.15);if(sp.fruit&&i%2===0)canopy(cx+r*.08,cy-h*.07,cz,.045,.055,sp.fruit,.04);}
         }else if(['groundcover','herb'].includes(sp.form)){

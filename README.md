@@ -6,10 +6,18 @@ Crop, herb, and berry palette entries draw planted polygon beds, with editable
 crop and spacing. Trees remain individual objects; grapes follow a drawn row.
 Bed patterns are clipped to the outline and use a capped representative density
 for large areas. The plan remains one editable bed, not hundreds of objects.
+Planting rows automatically follow the bed's longest edge and can be rotated
+independently in 15-degree steps without changing the bed boundary or its area.
+
+The crop library includes spinach, beetroot, Portuguese tall kale (Couve Galega),
+tomatoes, basil, sweet and chilli peppers, peas, cucumbers, climbing beans,
+courgettes, squash, potatoes, autumn greens, sweet potatoes, favas, dry beans,
+and chickpeas. Tall brassicas and climbing crops use distinct 2D and 3D forms.
 
 Every movable object in the measured 2D design supports a rotation angle and a
-90-degree turn. Polygon rotation preserves area and rotates planting rows with
-the bed. Once created, the garden boundary is a locked ground layer; retrace it
+90-degree turn. Bed-outline rotation preserves area, while the planting row
+angle is controlled independently. Once created, the garden boundary is a
+locked ground layer; retrace it
 to replace it instead of moving it accidentally.
 Paths default to 0.5 m, retain their physical width when changing units, and
 render below beds, plants, and structures regardless of creation order.
